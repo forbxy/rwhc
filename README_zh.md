@@ -1,5 +1,5 @@
 # Windows 11 真正可用的 HDR 校准软件
-[ENGLISH](https://github.com/forbxy/rwhc/blob/master/README.md)|中文
+中文|[ENGLISH](https://github.com/forbxy/rwhc/blob/master/README.md)
 
 ![screenshot](https://github.com/forbxy/rwhc/blob/master/resources/ui_zh.png)
 

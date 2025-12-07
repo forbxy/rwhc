@@ -1,5 +1,5 @@
 # A Truly Usable HDR Calibration Tool for Windows 11
-[ENGLISH](https://github.com/forbxy/rwhc/blob/master/README.md) | 中文
+[中文](https://github.com/forbxy/rwhc/blob/master/README_zh.md)|ENGLISH
 
 ![screenshot](https://github.com/forbxy/rwhc/blob/master/resources/ui.png)
 
