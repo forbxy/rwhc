@@ -9,7 +9,9 @@ import numpy as np
 class ColorReader:
     def __init__(self, args):
         self.args_list = args
-        self.instance = wexpect.spawn("bin/spotread.exe", [self.args_list],
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        execute = os.path.join(base_dir, "bin", "spotread.exe")
+        self.instance = wexpect.spawn(execute, [self.args_list],
                                     env=os.environ.copy(), timeout=10)
         s = ""
         timeout = 15
@@ -69,8 +71,10 @@ class ColorReader:
 
 class ColorWriter:
     def __init__(self, mode="hdr_10"):
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        execute = os.path.join(base_dir, "bin", "dogegen.exe")
         self.instance = subprocess.Popen(
-            ["bin/dogegen.exe"],                
+            [execute],                
             stdin=subprocess.PIPE,     
             stdout=subprocess.PIPE,    
             stderr=subprocess.PIPE, 
@@ -96,7 +100,6 @@ class ColorWriter:
         self.instance.stdin.write(command)
         self.instance.stdin.flush()
         ret = self.instance.stdout.readline()
-        print(ret)
         self.count += 1
         time.sleep(delay)
 

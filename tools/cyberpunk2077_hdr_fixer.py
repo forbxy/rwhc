@@ -1,10 +1,17 @@
 import tkinter as tk
 import os
+import sys
+
+# --- ensure project root in sys.path ---
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(CURRENT_DIR)
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 import copy
 import re
 import time
 import tempfile
-from tkinter import ttk, messagebox,filedialog
+from tkinter import ttk, messagebox, filedialog
 from meta_data import *
 from icc_rw import ICCProfile
 from win_display import get_all_display_config,get_monitor_rect_by_gdi_name,cp_add_display_association
@@ -13,6 +20,7 @@ from convert_utils import *
 from matrix import *
 from lut import eetf_from_lut
 from monitor_info import get_edid_info
+from i18n.i18n_loader import _
 
 class CyberFixerApp(tk.Tk):
     def __init__(self):
@@ -48,19 +56,17 @@ class CyberFixerApp(tk.Tk):
             "mapping_midpoint": 2
         }
 
-        self.icc_path = "hdr_empty.icc"
+        self.icc_path = os.path.join(PROJECT_ROOT, "data", "hdr_empty.icc")
         self.init_base_icc()
         
         self.dynamic_loading_name = None
         self.dynamic_last_call = 0
         
-        self.title("赛博朋克HDR修复(by白杨春晓)")
+        self.title(_("Cyberpunk HDR Fixer (by Baiyang Chunxiao)"))
         self.resizable(True, True)
 
-        # 状态变量
         self.saturation_var = tk.DoubleVar(value=0.0)
         self.sat_display_var = tk.StringVar(value="(0.00)")
-        # 映射中点（mapping_midpoint） 0.1..3.0, 默认1.0
         self.map_mid_var = tk.DoubleVar(value=2.0)
         self.map_mid_display_var = tk.StringVar(value="(2.00)")
         # bind map_mid_var changes to handler (works for modern and older tkinter)
@@ -80,37 +86,32 @@ class CyberFixerApp(tk.Tk):
         except Exception:
             # fallback for older tkinter
             self.monitor_max_var.trace("w", lambda *a: self.on_monitor_max_changed(*a))
-         # 新增：显示器选择
         self.monitor_list = list(self.human_display_config_map.keys())
         self.monitor_list.sort()
-        self.monitor_var = tk.StringVar(value=self.monitor_list[0] if self.monitor_list else "No Monitor Found")
-        # 配置文件名称（默认）
+        self.monitor_var = tk.StringVar(value=self.monitor_list[0] if self.monitor_list else _("No Monitor Found"))
         self.config_name_var = tk.StringVar(value="cyberpunk2077-hdr-fixed")
         
         self.game_setting_display_var = tk.StringVar(value="")
  
         self._build_ui()
-        # 窗口居中
-        self._center_window(380, 380)
+        self._center_window(500, 380)
         self.on_monitor_max_changed()
         
 
     def _center_window(self, w=340, h=340):
-        # 计算屏幕中心并设置窗口位置
         self.update_idletasks()
         sw = self.winfo_screenwidth()
         sh = self.winfo_screenheight()
         x = (sw - w) // 2
         y = (sh - h) // 2
-        self.geometry(f"{w}x{h}+{x}+{y}")
+        self.geometry("{}x{}+{}+{}".format(w, h, x, y))
 
     def _build_ui(self):
         pad = {"padx": 14, "pady": 10}
         frm = ttk.Frame(self)
         frm.pack(fill="both", expand=True, **pad)
 
-        # 显示器选择（占位，放最上面）
-        ttk.Label(frm, text="显示器：", font=("Microsoft YaHei", 11)).grid(row=0, column=0, sticky="w") 
+        ttk.Label(frm, text=_("Display:"), font=("Microsoft YaHei", 11)).grid(row=0, column=0, sticky="w") 
         monitor_box = ttk.Combobox(
             frm,
             textvariable=self.monitor_var,
@@ -119,11 +120,10 @@ class CyberFixerApp(tk.Tk):
         )
         monitor_box.grid(row=0, column=1, sticky="w")
 
-        # 配置文件名称（在显示器选择下面）
-        ttk.Label(frm, text="配置文件名称：", font=("Microsoft YaHei", 11)).grid(row=1, column=0, sticky="w", pady=(6,0))
+        ttk.Label(frm, text=_("Profile name:"), font=("Microsoft YaHei", 11)).grid(row=1, column=0, sticky="w", pady=(6,0))
         ttk.Entry(frm, textvariable=self.config_name_var, width=26).grid(row=1, column=1, columnspan=2, sticky="w", pady=(6,0))
 
-        ttk.Label(frm, text="饱和度：", font=("Microsoft YaHei", 11)).grid(row=2, column=0, sticky="w", pady=(8,0))
+        ttk.Label(frm, text=_("Saturation:"), font=("Microsoft YaHei", 11)).grid(row=2, column=0, sticky="w", pady=(8,0))
         ttk.Label(frm, textvariable=self.sat_display_var).grid(row=2, column=0, sticky="w", padx=(53,0), pady=(8,2))
         sat_scale = ttk.Scale(
             frm,
@@ -142,21 +142,21 @@ class CyberFixerApp(tk.Tk):
         sat_scale.bind("<B1-Motion>", self.on_scale_motion)
 
         # ---------- luminance input rows (placed under row 2) ----------
-        ttk.Label(frm, text="源最大亮度(nits):", font=("Microsoft YaHei", 10)).grid(row=3, column=0, sticky="w", pady=(6,0))
+        ttk.Label(frm, text=_("Source max luminance (nits):"), font=("Microsoft YaHei", 10)).grid(row=3, column=0, sticky="w", pady=(6,0))
         ttk.Entry(frm, textvariable=self.source_max_var, width=18).grid(row=3, column=1, sticky="w", pady=(6,0))
 
-        ttk.Label(frm, text="源最低亮度(nits):", font=("Microsoft YaHei", 10)).grid(row=4, column=0, sticky="w", pady=(6,0))
+        ttk.Label(frm, text=_("Source min luminance (nits):"), font=("Microsoft YaHei", 10)).grid(row=4, column=0, sticky="w", pady=(6,0))
         ttk.Entry(frm, textvariable=self.source_min_var, width=18).grid(row=4, column=1, sticky="w", pady=(6,0))
 
-        ttk.Label(frm, text="显示器最大亮度(nits):", font=("Microsoft YaHei", 10)).grid(row=5, column=0, sticky="w", pady=(6,0))
+        ttk.Label(frm, text=_("Display max luminance (nits):"), font=("Microsoft YaHei", 10)).grid(row=5, column=0, sticky="w", pady=(6,0))
         ttk.Entry(frm, textvariable=self.monitor_max_var, width=18).grid(row=5, column=1, sticky="w", pady=(6,0))
 
-        ttk.Label(frm, text="显示器最低亮度(nits):", font=("Microsoft YaHei", 10)).grid(row=6, column=0, sticky="w", pady=(6,0))
+        ttk.Label(frm, text=_("Display min luminance (nits):"), font=("Microsoft YaHei", 10)).grid(row=6, column=0, sticky="w", pady=(6,0))
         ttk.Entry(frm, textvariable=self.monitor_min_var, width=18).grid(row=6, column=1, sticky="w", pady=(6,0))
         # ---------- end luminance rows ----------
  
         # 映射中点（放在按钮上面）
-        ttk.Label(frm, text="色调映射中点：", font=("Microsoft YaHei", 10)).grid(row=7, column=0, sticky="w", pady=(8,2))
+        ttk.Label(frm, text=_("Tone-mapping midpoint:"), font=("Microsoft YaHei", 10)).grid(row=7, column=0, sticky="w", pady=(8,2))
         ttk.Label(frm, textvariable=self.map_mid_display_var).grid(row=7, column=0, sticky="w", padx=(85,0), pady=(8,2))
         self.map_scale = ttk.Scale(
             frm,
@@ -175,9 +175,9 @@ class CyberFixerApp(tk.Tk):
          # 按钮
         btns = ttk.Frame(frm)
         btns.grid(row=8, column=0, columnspan=3, sticky="w", pady=(18, 0))
-        ttk.Button(btns, text="导入原icc", command=self.on_import_icc, width=12).pack(side="left")
-        ttk.Button(btns, text="生成并加载", command=self.on_generate, width=12).pack(side="left", padx=(8, 0))
-        ttk.Button(btns, text="取消加载", command=self.on_cancel_load, width=12).pack(side="left", padx=(8, 0))
+        ttk.Button(btns, text=_("Import ICC"), command=self.on_import_icc, width=12).pack(side="left")
+        ttk.Button(btns, text=_("Generate & Load"), command=self.on_generate, width=12).pack(side="left", padx=(8, 0))
+        ttk.Button(btns, text=_("Cancel Load"), command=self.on_cancel_load, width=12).pack(side="left", padx=(8, 0))
         # 按钮下面的文字标签（用于显示状态/提示）
         ttk.Label(frm, textvariable=self.game_setting_display_var, font=("Microsoft YaHei", 10), foreground="blue").grid(
             row=9, column=0, columnspan=3, sticky="w", pady=(8, 0)
@@ -191,9 +191,9 @@ class CyberFixerApp(tk.Tk):
     def on_import_icc(self):
         path = filedialog.askopenfilename(
             initialdir=os.path.expanduser("C:/Windows/System32/spool/drivers/color"),
-            title="导入 ICC 文件",
+            title=_("Import ICC file"),
             defaultextension=".icc",
-            filetypes=[("ICC 文件", "*.icc"), ("所有文件", "*.*")],
+            filetypes=[(_("ICC files"), "*.icc"), (_("All files"), "*.*")],
         )
         if not path:
             return
@@ -246,7 +246,7 @@ class CyberFixerApp(tk.Tk):
             val = float(v)
         except Exception:
             val = self.saturation_var.get()
-        self.sat_display_var.set(f"({val:.2f})")
+        self.sat_display_var.set(_("({:.2f})").format(val))
         # self.dynamic_load_icc()
     
     def on_map_mid_change(self, *args):
@@ -275,16 +275,16 @@ class CyberFixerApp(tk.Tk):
             val = float(self.map_mid_var.get())
         except Exception:
             return
-        self.map_mid_display_var.set(f"({val:.1f})")
+        self.map_mid_display_var.set(_("({:.1f})").format(val))
         # placeholder for additional behavior on mapping-midpoint change
         # e.g. self.game_setting["mapping_midpoint"] = val
         self.game_setting["mapping_midpoint"] = round(val, 1)
         source_min = map_midpoint_to_min_lumi(round(val, 1))
-        self.source_min_var.set(f"{source_min:.2f}")
-        s = "游戏内设置：\n"
-        s += f"最大亮度: {self.game_setting['lumi']}"
-        s += f"    色调映射中点: {self.game_setting['mapping_midpoint']}"
-        s += f"    饱和度: {self.game_setting['saturation']}\n"
+        self.source_min_var.set("{:.2f}".format(source_min))
+        s = _("In-game settings:\n")
+        s += _("Max brightness: {}" ).format(self.game_setting['lumi'])
+        s += _("    Tone-mapping midpoint: {}" ).format(self.game_setting['mapping_midpoint'])
+        s += _("    Saturation: {}\n" ).format(self.game_setting['saturation'])
         self.game_setting_display_var.set(s)
         
 
@@ -357,10 +357,10 @@ class CyberFixerApp(tk.Tk):
         source_max = source_max if source_max >= monitor_max else monitor_max
         self.game_setting["lumi"] = game_max
         self.game_setting_display_var.set(str(self.game_setting))
-        s = "游戏内设置：\n"
-        s += f"最大亮度: {self.game_setting['lumi']}"
-        s += f"  色调映射中点: {self.game_setting['mapping_midpoint']}(推荐:{suggest_message})"
-        s += f"  饱和度: {self.game_setting['saturation']}\n"
+        s = _("In-game settings:\n")
+        s += _("Max brightness: {}" ).format(self.game_setting['lumi'])
+        s += _("  Tone-mapping midpoint: {} (recommend: {})" ).format(self.game_setting['mapping_midpoint'], suggest_message)
+        s += _("  Saturation: {}\n" ).format(self.game_setting['saturation'])
         self.game_setting_display_var.set(s)
         self.source_max_var.set(source_max)
 
@@ -449,17 +449,17 @@ class CyberFixerApp(tk.Tk):
         args["source_min"] = float(self.source_min_var.get())
         args["source_max"] = float(self.source_max_var.get())
         if 10000 < args["monitor_max"] <= 200:
-            messagebox.showerror("错误", "显示器最大亮度必须大于200且小于10000")
-            raise ValueError("显示器最大亮度必须大于200且小于10000")
+            messagebox.showerror(_("Error"), _("Display max luminance must be between 200 and 10000"))
+            raise ValueError("Display max luminance must be between 200 and 10000")
         if 10000 < args["source_max"] <= 200:
-            messagebox.showerror("错误", "源最大亮度必须大于200且小于10000")
-            raise ValueError("源最大亮度必须大于200且小于10000")
+            messagebox.showerror(_("Error"), _("Source max luminance must be between 200 and 10000"))
+            raise ValueError("Source max luminance must be between 200 and 10000")
         if args["monitor_min"] > 10 or args["monitor_min"] < 0:
-            messagebox.showerror("错误", "显示器最低亮度必须在0-10之间")
-            raise ValueError("显示器最低亮度必须在0-10之间")
+            messagebox.showerror(_("Error"), _("Display min luminance must be between 0 and 10"))
+            raise ValueError("Display min luminance must be between 0 and 10")
         if args["source_min"] > 10 or args["source_min"] < 0:
-            messagebox.showerror("错误", "源最低亮度必须在0-10之间")
-            raise ValueError("源最低亮度必须在0-10之间")
+            messagebox.showerror(_("Error"), _("Source min luminance must be between 0 and 10"))
+            raise ValueError("Source min luminance must be between 0 and 10")
         return args
 
     def get_convert_suit(self, saturation):
@@ -544,7 +544,7 @@ class CyberFixerApp(tk.Tk):
         saturation = float(self.saturation_var.get())
         print(saturation)
         if display_config["color_work_status"] != "hdr":
-            messagebox.showinfo("信息", "系统当前未开启HDR模式，请开启后重启改程序")
+            messagebox.showinfo(_("Info"), _("HDR is currently off. Please enable HDR in system settings and restart this app."))
             return
         if self.icc_path == "hdr_empty.icc":
             edid_info = get_edid_info(self.get_selected_pnp_device_id())

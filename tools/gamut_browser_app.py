@@ -1,7 +1,8 @@
 from tkinter import ttk, filedialog,messagebox
 from matplotlib.path import Path
-import matplotlib
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from colour import SpectralDistribution, SpectralShape, sd_to_XYZ, SDS_ILLUMINANTS, MSDS_CMFS
+import matplotlib
 import tkinter.font as tkfont
 import tkinter as tk
 import matplotlib.pyplot as plt
@@ -9,6 +10,7 @@ import numpy as np
 import struct
 import traceback
 import os
+import sys
 import ctypes
 
 try:
@@ -16,7 +18,12 @@ try:
 except:
     pass
 
-from colour import SpectralDistribution, SpectralShape, sd_to_XYZ, SDS_ILLUMINANTS, MSDS_CMFS
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(CURRENT_DIR)
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+from i18n.i18n_loader import _
 
 def create_single_wavelength_sd(wavelength, shape):
     data = {wavelength: 1.0}
@@ -197,21 +204,18 @@ default_spaces = {
 class ColorGamutApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("CIE 1931 色域马蹄图")
+        self.root.title(_("CIE 1931 Gamut Plot"))
         self.root.geometry("1000x700")
         self.color_spaces = dict(default_spaces)
         self.check_vars = {}
         
         self.control_frame = ttk.Frame(root)
         self.control_frame.grid(row=0, column=0, sticky="ns")
-        # 加载 ICC 文件 按钮
-        self.load_button = ttk.Button(self.control_frame, text="加载 ICC 文件", command=self.load_icc)
+        self.load_button = ttk.Button(self.control_frame, text=_("Load ICC Profiles"), command=self.load_icc)
         self.load_button.grid(row=0, column=0, pady=10, sticky="w")
-        # **新增: 添加自定义色域 按钮**
-        self.add_button = ttk.Button(self.control_frame, text="添加自定义色域", command=self.add_custom_space)
+        self.add_button = ttk.Button(self.control_frame, text=_("Add Custom Gamut"), command=self.add_custom_space)
         self.add_button.grid(row=1, column=0, pady=10, sticky="w")
         
-        # 画布区域初始化...
         self.canvas_frame = ttk.Frame(root)
         self.canvas_frame.grid(row=0, column=1, sticky="nsew")
         self.fig, self.ax = plt.subplots(figsize=(6, 6))
@@ -219,9 +223,7 @@ class ColorGamutApp:
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.canvas_frame)
         self.canvas.get_tk_widget().pack(fill='both', expand=True)
         self.canvas.mpl_connect("scroll_event", self.on_scroll)
-        # ... 绑定窗口大小调整事件等 ...
         
-        # 生成色度图背景和光谱边界
         self.horseshoe_img = generate_chromaticity_diagram_image()
         
         root.columnconfigure(1, weight=1)
@@ -235,7 +237,6 @@ class ColorGamutApp:
         self.canvas.mpl_connect("motion_notify_event", self.on_mouse_drag)
         
 
-        # 复选框初始化：从第2行开始列出已有色域
         self.setup_checkboxes()
         
         # ---------- coordinate status placed in a bottom status bar ----------
@@ -274,7 +275,6 @@ class ColorGamutApp:
         self.canvas.mpl_connect("motion_notify_event", self.on_mouse_move)
     
     def setup_checkboxes(self):
-        # 从色域字典创建对应的勾选框列表(起始行=2，避免与按钮冲突)
         for idx, name in enumerate(self.color_spaces.keys()):
             self.add_checkbox(name, idx + 2)
     def add_checkbox(self, name, row):
@@ -284,69 +284,60 @@ class ColorGamutApp:
         self.check_vars[name] = var
     
     def load_icc(self):
-        # 保持原有ICC加载逻辑，调整新增checkbox的行号计算
         paths = filedialog.askopenfilenames(filetypes=[("ICC profiles", "*.icc *.icm")])
         for path in paths:
             gamut = read_icc_rgb_wtpt(path)
             if gamut:
-                name = f"ICC: {os.path.basename(path)}"
-                # 随机颜色标识
+                name = _("ICC: {}" ).format(os.path.basename(path))
                 self.color_spaces[name] = {"color": np.random.rand(3,), "gamut": gamut}
-                # 在下一行添加复选框(len(self.check_vars)当前长度加2)
                 self.add_checkbox(name, len(self.check_vars) + 2)
         self.draw_plot()
     
-    # **新增: 添加自定义色域函数**
     def add_custom_space(self):
-        # 创建弹窗
         dialog = tk.Toplevel(self.root)
-        dialog.title("添加自定义色域")
+        dialog.title(_("Add Custom Gamut"))
         dialog.geometry("400x500")
 
-        # 输入：名称 + 一次性输入 RGBW 的 xy（每行一个色，行顺序 R G B W，格式 "x,y"）
         entries = {}
-        ttk.Label(dialog, text="色域名称：").grid(row=0, column=0, padx=5, pady=6, sticky="e")
+        ttk.Label(dialog, text=_("Gamut name:")).grid(row=0, column=0, padx=5, pady=6, sticky="e")
         entries["name"] = ttk.Entry(dialog, width=22)
         entries["name"].grid(row=0, column=1, padx=5, pady=6, sticky="w")
 
-        ttk.Label(dialog, text="RGBW xy (每行 x,y，按换行分隔 R\\nG\\nB\\nW)：").grid(
+        ttk.Label(dialog, text=_("RGBW xy (each line x,y; lines R\\nG\\nB\\nW):")).grid(
             row=1, column=0, columnspan=2, padx=5, pady=(8,2), sticky="w"
         )
         txt = tk.Text(dialog, width=28, height=6)
         txt.grid(row=2, column=0, columnspan=2, padx=8, pady=4)
-        # 示例提示
-        hint = "示例：\n0.6400,0.3300\n0.3000,0.6000\n0.1500,0.0600\n0.3127,0.3290"
+        hint = _("Example:\n0.6400,0.3300\n0.3000,0.6000\n0.1500,0.0600\n0.3127,0.3290")
         ttk.Label(dialog, text=hint, foreground="gray").grid(row=3, column=0, columnspan=2, padx=8, pady=(0,8), sticky="w")
         entries["rgbw_text"] = txt
 
-        # 按钮区
         def on_confirm():
             try:
                 name = entries["name"].get().strip()
                 if not name:
-                    messagebox.showerror("错误", "请输入色域名称")
+                    messagebox.showerror(_("Error"), _("Please enter a gamut name"))
                     return
                 text = entries["rgbw_text"].get("1.0", "end").strip()
                 lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
                 if len(lines) != 4:
-                    messagebox.showerror("错误", "请提供 4 行 RGBW 的 xy 值（每行 x,y）")
+                    messagebox.showerror(_("Error"), _("Provide 4 lines of RGBW xy values (each line x,y)"))
                     return
                 cols = []
                 for ln in lines:
                     parts = [p.strip() for p in ln.split(",")]
                     if len(parts) != 2:
-                        raise ValueError(f"行格式错误: {ln!r}")
+                        raise ValueError(_("Line format error: {}" ).format(ln))
                     x = float(parts[0]); y = float(parts[1])
                     if not (0.0 <= x <= 1.0 and 0.0 <= y <= 1.0):
-                        raise ValueError(f"坐标必须在 0~1 之间: {ln!r}")
+                        raise ValueError(_("Coordinates must be between 0 and 1: {}" ).format(ln))
                     cols.append([x, y])
                 red, green, blue, white = cols
 
-                # 避免重名
                 new_name = name
                 idx = 1
                 while new_name in self.color_spaces:
-                    new_name = f"{name}_{idx}"
+                    new_name = "{}_{}".format(name, idx)
                     idx += 1
 
                 self.color_spaces[new_name] = {
@@ -363,38 +354,32 @@ class ColorGamutApp:
                 dialog.destroy()
             except Exception as e:
                 print(traceback.format_exc())
-                messagebox.showerror("错误", f"输入错误: {e}")
+                messagebox.showerror(_("Error"), _("Input error: {}" ).format(e))
 
         def on_cancel():
             dialog.destroy()
         
 
-        ttk.Button(dialog, text="确定", command=on_confirm).grid(row=9, column=0, pady=10, padx=8)
-        ttk.Button(dialog, text="取消", command=on_cancel).grid(row=9, column=1, pady=10, padx=8)
+        ttk.Button(dialog, text=_("OK"), command=on_confirm).grid(row=9, column=0, pady=10, padx=8)
+        ttk.Button(dialog, text=_("Cancel"), command=on_cancel).grid(row=9, column=1, pady=10, padx=8)
 
     def draw_plot(self):
         self.ax.clear()
-        # 绘制色度图背景(带正确颜色的马蹄形图)
         self.ax.imshow(self.horseshoe_img, extent=(0, 0.8, 0, 0.9), origin='lower')
-        # 绘制光谱轨迹边界为黑色线条
-        # spectral_border = np.array(self.spectral_border)
-        # self.ax.plot(spectral_border[:,0], spectral_border[:,1], color='black', linewidth=0.8)
-        # 绘制各选中色域的三角形和白点
+
         for name, var in self.check_vars.items():
             if var.get():
                 entry = self.color_spaces[name]
                 cs = entry["gamut"]
                 color = entry["color"]
-                # 三角形顶点顺序红->绿->蓝->红闭合
                 pts = np.array([cs['red'], cs['green'], cs['blue'], cs['red']])
                 self.ax.plot(pts[:, 0], pts[:, 1], label=name, color=color)
-                # 绘制白点
                 self.ax.scatter(*cs['white'], color='black', marker='x')
                 self.ax.text(cs['white'][0] + 0.01, cs['white'][1] + 0.01, name, fontsize=8)
-        # 坐标轴范围和标题
+
         self.ax.set_xlim(0, 0.8)
         self.ax.set_ylim(0, 0.9)
-        self.ax.set_title("CIE 1931 xy 色度图(带背景)")
+        self.ax.set_title(_("CIE 1931 xy Chromaticity (background)"))
         self.ax.set_xlabel("x")
         self.ax.set_ylabel("y")
         self.ax.grid(True)
@@ -402,11 +387,10 @@ class ColorGamutApp:
         self.canvas.draw()
     
     def on_scroll(self, event):
-        # 获取当前鼠标位置（单位：数据坐标）
         x = event.xdata
         y = event.ydata
         if x is None or y is None:
-            return  # 鼠标不在坐标轴区域内，忽略
+            return  
 
         ax = self.ax
         cur_xlim = ax.get_xlim()
@@ -448,8 +432,7 @@ class ColorGamutApp:
         dx = event.xdata - x_prev
         dy = event.ydata - y_prev
 
-        # ✅ 添加缩放因子，控制灵敏度
-        factor = 0.8  # 灵敏度因子（0.8 = 稍柔和；越小越慢）
+        factor = 0.8  
         dx *= factor
         dy *= factor
 
@@ -465,9 +448,9 @@ class ColorGamutApp:
         """Update coord label with data coordinates when the pointer is over the axes."""
         # show persistent "None" when not over the axes
         if event.xdata is None or event.ydata is None:
-            self.coord_var.set("x=None y=None")
+            self.coord_var.set(_("x=None y=None"))
             return
-         # format to 4 decimal places, clamp to current axis limits for nicer display
+        # format to 4 decimal places, clamp to current axis limits for nicer display
         try:
             x, y = float(event.xdata), float(event.ydata)
             xlim = self.ax.get_xlim()
@@ -476,7 +459,7 @@ class ColorGamutApp:
                 self.coord_var.set("x=None y=None")
             else:
                 # split x and y into two lines
-                self.coord_var.set(f"x={x:.4f} y={y:.4f}")
+                self.coord_var.set("x={:.4f} y={:.4f}".format(x, y))
         except Exception:
             self.coord_var.set("")
             self.coord_var.set("x=None y=None")
@@ -491,11 +474,9 @@ if __name__ == "__main__":
     matplotlib.rcParams['font.family'] = 'Microsoft YaHei'
     root = tk.Tk()
 
-    # ✅ 设置全局字体为支持中文的“Microsoft YaHei”
     default_font = tkfont.nametofont("TkDefaultFont")
     default_font.configure(family="Microsoft YaHei", size=10)
     root.option_add("*Font", default_font)
-    # 让关闭窗口时触发 quit，确保退出主线程
     root.protocol("WM_DELETE_WINDOW", root.quit)
 
     app = ColorGamutApp(root)

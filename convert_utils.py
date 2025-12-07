@@ -395,20 +395,16 @@ def xy_primaries_to_XYZ_normed(primaries: dict, Yn=1.0):
     Bn = xyY_to_XYZ([xb, yb, Yn*10000])
     Wn = xyY_to_XYZ([xw, yw, Yn*10000])
 
-    # 以列为原色构成矩阵
     M = np.stack([Rn, Gn, Bn], axis=1)  # 3x3
-    # 求缩放系数 S，使 M @ S = Wn
     try:
         S = np.linalg.solve(M, Wn)  # 3x1
     except np.linalg.LinAlgError:
         raise ValueError("原色矩阵不可逆，无法从 xy 求归一化 XYZ")
 
-    # 缩放后的原色 XYZ（Y=1 的白对齐）
     R = Rn * S[0]
     G = Gn * S[1]
     B = Bn * S[2]
 
-    # 按 Yn 统一缩放（使白点 Y=Yn）
     scale = float(Yn)
     R *= scale
     G *= scale
@@ -423,9 +419,7 @@ def xy_primaries_to_XYZ_normed(primaries: dict, Yn=1.0):
     }
 
 def rgb2020_linear_to_lms(rgb_linear):
-    """
-    BT.2020 线性 RGB -> LMS（ICtCp 前向路径，BT.2100 M1）
-    """
+
     rgb_linear = np.asarray(rgb_linear, dtype=float)
     M = (np.array([
         [1688, 2146,  262],
@@ -437,11 +431,7 @@ def rgb2020_linear_to_lms(rgb_linear):
     return np.maximum(lms, 0.0)
 
 def lms_p_to_ictcp(lmsp):
-    """
-    LMS' (经 PQ) -> ICtCp
-    输入 lmsp 为 0..1（PQ OETF 后）
-    输出 ICtCp 分量 I, T, P（0..1 的相对量）
-    """
+
     lmsp = np.asarray(lmsp, dtype=float)
     M = (np.array([
         [ 2048,   2048,     0],
@@ -451,10 +441,7 @@ def lms_p_to_ictcp(lmsp):
     return np.dot(M, lmsp)
 
 def XYZ_to_ictcp(xyz_norm):
-    """
-    XYZ(norm, 1=10000nits) -> ICtCp
-    流程: XYZ -> BT.2020 线性 RGB -> LMS -> PQ(OETF) -> ICtCp
-    """
+
     xyz_norm = np.asarray(xyz_norm, dtype=float)
     rgb2020 = XYZ_to_bt2020_linear(xyz_norm)
     lms = rgb2020_linear_to_lms(rgb2020)
@@ -463,9 +450,4 @@ def XYZ_to_ictcp(xyz_norm):
 
 if __name__ == "__main__":
     from meta_data import D65_WHITE_POINT
-    a = xyY_to_XYZ([*D65_WHITE_POINT, 100])
-    pq_a = XYZ_to_BT2020_PQ_rgb(a)
-    b = xyY_to_XYZ([*D65_WHITE_POINT, 1000])
-    pq_b = XYZ_to_BT2020_PQ_rgb(b)
-    print("PQ 100nit:", (pq_a*1023).round().astype(int))
-    print("PQ 1000nit:", (pq_b*1023).round().astype(int))
+    a = BT2020_PQ_rgb_to_XYZ([0.5, 0.5, 0.5])

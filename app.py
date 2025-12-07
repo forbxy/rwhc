@@ -5,26 +5,21 @@ from convert_utils import *
 from delteE import *
 from icc_rw import ICCProfile
 from color_test_suit import *
+from color_rw import ColorReader, ColorWriter
+from log import logging, TextHandler
+from i18n.i18n_loader import _
 
-# from icc_dispatch import *
 from win_display import (
     get_all_display_config,
     get_monitor_rect_by_gdi_name,
     cp_add_display_association,
-)
-from win_display import (
     install_icc,
     uninstall_icc,
     cp_remove_display_association,
     luid_from_dict,
 )
 
-
-from color_rw import ColorReader, ColorWriter
-from log import logging, TextHandler
-
 from tkinter import filedialog, ttk, Canvas
-import tkinter.font as tkfont
 import tkinter as tk
 import numpy as np
 import webbrowser
@@ -124,7 +119,7 @@ class HDRCalibrationUI:
         root_logger.addHandler(fh)
 
         root_logger.setLevel(logging.INFO)
-        logging.info("Application started")
+        logging.info(_("Application started"))
 
     def build_ui(self):
         self.root.geometry("960x1000")
@@ -168,30 +163,29 @@ class HDRCalibrationUI:
 
         tk.Frame(top_bar, bg="#dcdcdc", height=1).pack(fill="x", side="bottom")
 
-        tools_btn = ttk.Menubutton(top_bar, text="工具", style="TopBar.TMenubutton")
+        tools_btn = ttk.Menubutton(top_bar, text=_("Tools"), style="TopBar.TMenubutton")
         tools_btn.pack(side="left", padx=(0, 24))
         tools_menu = tk.Menu(tools_btn, tearoff=0, font=("Microsoft YaHei", 14))
-        tools_menu.add_command(label="ICC修改器", command=self.open_icc_modifier)
-        tools_menu.add_command(label="色域浏览器", command=self.open_gamut_browser)
-        tools_menu.add_command(label="查看灰阶", command=self.grayscale_view)
-        tools_menu.add_command(label="手动测量", command=self.open_manual_measure)
-        tools_btn["menu"] = tools_menu  # or tools_btn.config(menu=tools_menu)
+        tools_menu.add_command(label=_("ICC Modifier"), command=lambda: self.open_tools("icc_modifier_app.py"))
+        tools_menu.add_command(label=_("Gamut Browser"), command=lambda: self.open_tools("gamut_browser_app.py"))
+        tools_menu.add_command(label=_("View Grayscale"), command=lambda: self.open_tools("view_grayscale_app.py"))
+        tools_menu.add_command(label=_("Manual Measurement"), command=lambda: self.open_tools("manual_measure_color_app.py"))
+        tools_btn["menu"] = tools_menu  
 
-        help_btn = ttk.Menubutton(top_bar, text="帮助", style="TopBar.TMenubutton")
+        help_btn = ttk.Menubutton(top_bar, text=_("Help"), style="TopBar.TMenubutton")
         help_btn.pack(side="left")
         help_menu = tk.Menu(help_btn, tearoff=0, font=("Microsoft YaHei", 14))
-        help_menu.add_command(label="使用教程", command=self.open_user_guide_window)
-        help_menu.add_command(label="项目主页", command=self.open_project_homepage)
+        help_menu.add_command(label=_("User Guide"), command=self.open_user_guide_window)
+        help_menu.add_command(label=_("Project Homepage"), command=self.open_project_homepage)
         help_btn["menu"] = help_menu
         self.help_window = None
 
-        # 程序介绍
-        intro = (
-            "使用前请先阅读帮助页面！！！\n"
-            "只适用于windows11 22H2及以上的版本\n"
-            "色彩生成器: dogegen\n"
-            "校色仪驱动: argyllcms spotread"
-        )
+        intro = "\n".join([
+            _("Please read the Help page before use!"),
+            _("Require win11 >= 22H2 win10 >= 1709"),
+            _("Pattern generator: dogegen"),
+            _("Colorimeter driver: argyllcms spotread")
+        ])
         tk.Label(
             root,
             text=intro,
@@ -204,26 +198,6 @@ class HDRCalibrationUI:
             wraplength=2150,
         ).pack(pady=(0, 10), padx=36, anchor="w")
 
-        # 使用方法
-        self.instructions = (
-            "1.使用爱色丽校色仪和罗技鼠标，先在设备管理器中将鼠标的驱动更换为windows默认驱动，"
-            "然后在服务中停止Logitech LampArray Service。\n\n"
-            "2.使用datacolor-spyder校色仪,先安装argyll驱动程序,然后在设备管理器中找到spyder设备(通用串行总线控制器下)"
-            "->右键更新驱动->浏览我的电脑->让我从计算机的可用驱动程序列表中选取->选择argyll\n\n"
-            "3..灰阶采样数:10bit hdr有1024级灰阶(R=G=B 0-1023)，"
-            "程序会等距离的在1024级灰阶中采集指定数量的灰阶，并对未测量的灰阶进行插值。"
-            "采集数量越多，PQ曲线校准越精准，但需要的时间也越久。目前LUT只对亮度进行校准\n\n"
-            "4.色彩采样集:程序会在所选色域内生成一个测试集，保证80%灰阶准确的前提下，按测试集预期XYZ和实测XYZ进行拟合得到矩阵。"
-            "如果你的屏幕在打开HDR后桌面色彩很鲜艳，选择sRGB。如果颜色暗淡，则选择sRGB+DisplayP3更优。\n\n"
-            "5.明亮模式: 对生成的LUT进行整体提升，适用于强环境光下观看电影。\n\n"
-            "6.预览校准结果：当执行了校准后，矩阵和LUT会存储在程序中，选中该选项会生成临时icc文件并加载到选中的屏幕，"
-            "取消选中后自动移除。未执行校准时加载的是理想HDR icc(bt2020色域，10000nit，无需矩阵和lut校准)\n\n"
-            "7.校准: 生成矩阵和LUT\n\n"
-            "8.测量色准:测量屏幕的色准(选中预览校准可以将矩阵和LUT临时加载到屏幕)\n\n"
-            "9.保存: 将矩阵和LUT保存为ICC配置文件\n\n"
-        )
-
-        # 分隔线
         tk.Frame(root, height=1, bg="#dcdcdc").pack(fill="x", padx=36, pady=(4, 8))
 
         style.configure(
@@ -231,11 +205,11 @@ class HDRCalibrationUI:
         )
         style.configure(
             "TCheckbutton",
-            font=("Microsoft YaHei", 16),  # 设置字体大小
-            padding=(8, 4),  # 可选：调整内边距
+            font=("Microsoft YaHei", 16),  # Set font size
+            padding=(8, 4),  # Optional: adjust padding
         )
 
-        # 按钮区域
+
         button_frame = tk.Frame(root, bg="#f8f8f8")
         button_frame.pack(pady=20, anchor="w", padx=36)
         self.root.option_add("*TCombobox*Listbox*Font", ("Microsoft YaHei", 15))
@@ -246,7 +220,7 @@ class HDRCalibrationUI:
             value=self.monitor_list[0] if self.monitor_list else "No Monitor Found"
         )
         tk.Label(
-            button_frame, text="选择屏幕：", font=("Microsoft YaHei", 16), bg="#f8f8f8"
+            button_frame, text=_("Select display:"), font=("Microsoft YaHei", 16), bg="#f8f8f8"
         ).grid(row=0, column=0, sticky="w", padx=(0, 10), pady=(0, 12), columnspan=3)
         monitor_menu = ttk.Combobox(
             button_frame,
@@ -269,7 +243,7 @@ class HDRCalibrationUI:
 
         self.instrument_var = tk.StringVar(value=self.instrument_desc[0])
         tk.Label(
-            button_frame, text="选择设备：", font=("Microsoft YaHei", 16), bg="#f8f8f8"
+            button_frame, text=_("Select instrument:"), font=("Microsoft YaHei", 16), bg="#f8f8f8"
         ).grid(row=1, column=0, sticky="w", padx=(0, 10), pady=(0, 12), columnspan=3)
         instrument_menu = ttk.Combobox(
             button_frame,
@@ -285,7 +259,7 @@ class HDRCalibrationUI:
 
         self.mode_var = tk.StringVar(value=self.mode_desc[0])
         tk.Label(
-            button_frame, text="设备模式：", font=("Microsoft YaHei", 16), bg="#f8f8f8"
+            button_frame, text=_("Instrument mode:"), font=("Microsoft YaHei", 16), bg="#f8f8f8"
         ).grid(row=2, column=0, sticky="w", padx=(0, 10), pady=(0, 12), columnspan=3)
         mode_menu = ttk.Combobox(
             button_frame,
@@ -299,10 +273,10 @@ class HDRCalibrationUI:
             row=2, column=0, sticky="we", padx=(120, 0), pady=(0, 12), columnspan=3
         )
 
-        self.pq_points_var = tk.StringVar(value="128")  # 默认值为 128
+        self.pq_points_var = tk.StringVar(value="128")  
         tk.Label(
             button_frame,
-            text="灰阶采样数：",
+            text=_("Grayscale samples:"),
             font=("Microsoft YaHei", 16),
             bg="#f8f8f8",
         ).grid(row=3, column=0, sticky="w", padx=(0, 10), pady=(0, 12))
@@ -319,7 +293,7 @@ class HDRCalibrationUI:
         self.color_space_var = tk.StringVar(value="sRGB")
         tk.Label(
             button_frame,
-            text="色彩采样集：",
+            text=_("Color sample set:"),
             font=("Microsoft YaHei", 16),
             bg="#f8f8f8",
         ).grid(row=3, column=1, sticky="w", padx=(0, 10), pady=(0, 12))
@@ -338,18 +312,18 @@ class HDRCalibrationUI:
         self.eetf_var = tk.BooleanVar(value=False)
         self.eetf_check = ttk.Checkbutton(
             button_frame,
-            text="亮度映射",
+            text=_("Luminance mapping"),
             variable=self.eetf_var,
             style="TCheckbutton",
             command=self.on_eetf_toggle,
         )
         # self.eetf_check.grid(row=3, column=2, sticky="w", padx=(0, 10), pady=(0, 12))
-        # eetf功能，需要重构
+        # EETF functionality needs refactor before enabling
         
         self.bright_var = tk.BooleanVar(value=False) 
         self.bright_checkbutton = ttk.Checkbutton(
             button_frame,
-            text="明亮模式",
+            text=_("Bright mode"),
             variable=self.bright_var,
             style="TCheckbutton",
         )
@@ -361,7 +335,7 @@ class HDRCalibrationUI:
         self.preview_var.trace_add("write", lambda *a: self.on_preview_toggle())
         self.preview_checkbutton = ttk.Checkbutton(
             button_frame,
-            text="预览校准结果",
+            text=_("Preview calibration result"),
             variable=self.preview_var,
             style="TCheckbutton",
         )
@@ -372,7 +346,7 @@ class HDRCalibrationUI:
         self.icc_set_var = tk.BooleanVar(value=True) 
         self.icc_set_checkbutton = ttk.Checkbutton(
             button_frame,
-            text="保存后加载为默认ICC",
+            text=_("Load as default ICC after saving"),
             variable=self.icc_set_var,
             style="TCheckbutton",
         )
@@ -382,7 +356,7 @@ class HDRCalibrationUI:
 
         ttk.Button(
             button_frame,
-            text="校准",
+            text=_("Calibrate"),
             command=self.calibrate_monitor,
             style="TButton",  
             
@@ -391,7 +365,7 @@ class HDRCalibrationUI:
 
         ttk.Button(
             button_frame,
-            text="测量色准",
+            text=_("Measure color accuracy"),
             command=self.measure_pq,
             style="TButton",
             width=20,
@@ -399,7 +373,7 @@ class HDRCalibrationUI:
 
         ttk.Button(
             button_frame,
-            text="保存为icc文件",
+            text=_("Save as ICC file"),
             command=self.generate_and_save_icc,
             style="TButton",
             width=20,
@@ -407,14 +381,14 @@ class HDRCalibrationUI:
 
         ttk.Button(
             button_frame,
-            text="打开设备管理器",
+            text=_("Open Device Manager"),
             command=lambda: os.system("start devmgmt.msc"),
             style="TButton",
             width=20,
         ).grid(row=6, column=0, columnspan=2, pady=(20, 0), sticky="w")
         ttk.Button(
             button_frame,
-            text="打开windows服务",
+            text=_("Open Windows Services"),
             command=lambda: os.system("start services.msc"),
             style="TButton",
             width=20,
@@ -422,13 +396,13 @@ class HDRCalibrationUI:
 
         ttk.Button(
             button_frame,
-            text="安装spyder驱动",
+            text=_("Install Spyder driver"),
             command=lambda: webbrowser.open(self.argyll_download_url),
             style="TButton",
             width=20,
         ).grid(row=6, column=2, columnspan=2, pady=(20, 0), sticky="w")
 
-        log_frame = ttk.LabelFrame(root, text="日志")
+        log_frame = ttk.LabelFrame(root, text=_("Log"))
         log_frame.pack(fill="both", expand=True, padx=36, pady=(0, 20))
         self.log_text = tk.Text(
             log_frame,
@@ -446,7 +420,7 @@ class HDRCalibrationUI:
         self.log_text.pack(side="left", fill="both", expand=True, padx=6, pady=6)
 
     def init_base_icc(self):
-        self.icc_handle = ICCProfile("hdr_empty.icc")
+        self.icc_handle = ICCProfile("data/hdr_empty.icc")
         self.icc_data = self.icc_handle.read_all()
         self.MHC2 = copy.deepcopy(self.icc_data["MHC2"])
         if self.MHC2["red_lut"] == [0, 1]:
@@ -457,7 +431,7 @@ class HDRCalibrationUI:
 
     def set_dpi_awareness(self):
         try:
-            ctypes.windll.shcore.SetProcessDpiAwareness(1)  # PROCESS_SYSTEM_DPI_AWARE
+            ctypes.windll.shcore.SetProcessDpiAwareness(1) 
         except Exception:
             try:
                 ctypes.windll.user32.SetProcessDPIAware()
@@ -475,7 +449,7 @@ class HDRCalibrationUI:
                 res = worker()
             except Exception as e:
                 res = e
-            # 回到主线程执行 GUI 回调
+            
             self.root.after(0, lambda: on_done(res))
 
         threading.Thread(target=_wrap, daemon=True).start()
@@ -504,21 +478,20 @@ class HDRCalibrationUI:
         lines = [itm.strip() for itm in output.splitlines()]
 
         c_list = []
-        # -c
         for i, ln in enumerate(lines):
             if "-c listno" in ln:
-                # 向下收集, 直到遇到下一参数(行以 '-' 开头且不是空格缩进)
+                # Collect downward until hitting the next argument (line starts with '-' and is not indented)
                 j = i
                 while j < len(lines):
                     l2 = lines[j]
                     if j != i and re.match(r"^-\w", l2):
                         break
-                    # 匹配 "  1 = 'xxxx'"
+                    # Match pattern like "  1 = 'xxxx'"
                     m = re.match(r"\s*(\d+)\s*=\s*'(.+)'", l2)
                     if m:
                         c_list.append([m.group(1), m.group(2)])
                     j += 1
-                break  # 完成后退出
+                break  # Exit after finishing the block
 
         # -y
         y_list = []
@@ -528,13 +501,13 @@ class HDRCalibrationUI:
                 start_idx = i
                 break
         if start_idx is not None:
-            # 收集块
+            # Collect the -y block
             block = []
             for j in range(start_idx, len(lines)):
                 l2 = lines[j]
                 if j == start_idx:
-                    l2 = l2[3:]  # 去掉 "-y " 前缀
-                if j > start_idx and re.match(r"^-\w", l2):  # 下一参数开始
+                    l2 = l2[3:]  # Strip the "-y " prefix
+                if j > start_idx and re.match(r"^\-\w", l2):  # Next argument begins
                     break
                 block.append(l2.rstrip())
             for raw in block:
@@ -545,7 +518,7 @@ class HDRCalibrationUI:
                 desc = m[-1].strip()
                 y_list.append([code, desc])
         if not y_list:
-            logging.error("未解析到spotread -y 模式, 原始输出可能格式变化")
+            logging.error(_("Failed to parse spotread -y modes; the output format may have changed"))
         return c_list, y_list
 
     def get_spotread_args(self):
@@ -556,83 +529,23 @@ class HDRCalibrationUI:
         args.extend(["-c", self.instrument_choose[instrument_idx]])
         args.extend(["-y", self.mode_choose[mode_idx].split("|")[0]])
         return " ".join(args)
-
-    def open_icc_modifier(self):
+    
+    def open_tools(self, tool_name):
         try:
-            script = os.path.join(os.path.dirname(__file__), "icc_rw_app.py")
+            script = os.path.join(os.path.dirname(__file__), "tools", tool_name)
             if not os.path.isfile(script):
-                tk.messagebox.showerror("错误", f"未找到文件: {script}")
+                tk.messagebox.showerror(_("Error"), _("File not found: {}").format(script))
                 return
             subprocess.Popen([sys.executable, script], cwd=os.path.dirname(script))
         except Exception as e:
-            tk.messagebox.showerror("错误", f"启动 icc_rw_app 失败: {e}")
+                tk.messagebox.showerror(_("Error"), _("Failed to launch {}: {}").format(tool_name, e))
 
-    def open_manual_measure(self):
-        try:
-            script = os.path.join(os.path.dirname(__file__), "manual_measure_color_app.py")
-            if not os.path.isfile(script):
-                tk.messagebox.showerror("错误", f"未找到文件: {script}")
-                return
-            subprocess.Popen([sys.executable, script], cwd=os.path.dirname(script))
-        except Exception as e:
-            tk.messagebox.showerror("错误", f"启动 manual_measure_color_app 失败: {e}")
-
-    def open_gamut_browser(self):
-        try:
-            script = os.path.join(os.path.dirname(__file__), "color_space_view_app.py")
-            if not os.path.isfile(script):
-                tk.messagebox.showerror("错误", f"未找到文件: {script}")
-                return
-            subprocess.Popen([sys.executable, script], cwd=os.path.dirname(script))
-        except Exception as e:
-            tk.messagebox.showerror("错误", f"启动 color_space_view_app 失败: {e}")
 
     def open_project_homepage(self):
         webbrowser.open(self.project_url)
 
-    def grayscale_view(self):
-        try:
-            script = os.path.join(os.path.dirname(__file__), "visual_check_app.py")
-            if not os.path.isfile(script):
-                tk.messagebox.showerror("错误", f"未找到文件: {script}")
-                return
-            subprocess.Popen([sys.executable, script], cwd=os.path.dirname(script))
-        except Exception as e:
-            tk.messagebox.showerror("错误", f"启动 visual_check_app 失败: {e}")
-
     def open_user_guide_window(self):
-        if self.help_window and tk.Toplevel.winfo_exists(self.help_window):
-            self.help_window.lift()
-            return
-        self.help_window = tk.Toplevel(self.root)
-        self.help_window.title("使用教程")
-        self.help_window.geometry("720x520")
-        self.help_window.configure(bg="#f8f8f8")
-        txt_frame = tk.Frame(self.help_window, bg="#f8f8f8")
-        txt_frame.pack(fill="both", expand=True, padx=12, pady=12)
-        scrollbar = tk.Scrollbar(txt_frame)
-        scrollbar.pack(side="right", fill="y")
-        help_text = tk.Text(
-            txt_frame,
-            font=("Microsoft YaHei", 16),
-            bg="#f8f8f8",
-            fg="#333333",
-            wrap="char",
-            borderwidth=0,
-            yscrollcommand=scrollbar.set,
-        )
-        help_text.pack(fill="both", expand=True)
-        help_text.insert("1.0", self.instructions)
-        help_text.config(state="disabled")
-        scrollbar.config(command=help_text.yview)
-
-        def on_close():
-            win = self.help_window
-            if win and win.winfo_exists():
-                win.destroy()
-            self.help_window = None
-
-        self.help_window.protocol("WM_DELETE_WINDOW", on_close)
+        webbrowser.open(self.project_url)
 
     def set_icc(self, path):
         """
@@ -726,7 +639,7 @@ class HDRCalibrationUI:
                         add(child, prev)
                         child.configure(state="disabled")
                 elif isinstance(child, ttk.Combobox):
-                    prev = child.cget("state")  # 可能是 'readonly' 或 'normal'
+                    prev = child.cget("state")  # Could be 'readonly' or 'normal'
                     if prev != "disabled":
                         add(child, prev)
                         child.configure(state="disabled")
@@ -788,7 +701,7 @@ class HDRCalibrationUI:
             try:
                 return func(*args, **kwargs)
             except Exception as e:
-                logging.error(f"执行 {func.__name__} 时发生错误: {e}")
+                logging.error(_("Error while executing {}: {}").format(func.__name__, e))
                 logging.error(traceback.format_exc())
                 try:
                     self.unfreeze_ui()
@@ -816,7 +729,7 @@ class HDRCalibrationUI:
                 self.proc_color_reader.terminate()
                 self.proc_color_reader = None
         except Exception as e:
-            logging.error(f"清理颜色读写进程时发生错误: {e}")
+            logging.error(_("Error cleaning color read/write processes: {}").format(e))
             logging.error(traceback.format_exc())
 
     def on_exit(self):
@@ -826,7 +739,7 @@ class HDRCalibrationUI:
                 self.clean_icc(self.preview_icc_name)
             self.clean_color_rw_process()
         except Exception as e:
-            logging.error(f"执行 on_exit 时发生错误: {e}")
+            logging.error(_("Error during on_exit: {}").format(e))
             logging.error(traceback.format_exc())
         try:
             self.root.destroy()
@@ -853,7 +766,7 @@ class HDRCalibrationUI:
         box_w = 500
         box_h = 300
         duration_ms = 1500
-        text = "已选择该屏幕"
+        text = _("Selected this display")
 
         mon_left = int(mon.get("left", 0))
         mon_top = int(mon.get("top", 0))
@@ -946,7 +859,7 @@ class HDRCalibrationUI:
             return
 
         win = tk.Toplevel(self.root)
-        win.title("EETF 参数")
+        win.title(_("EETF parameters"))
         win.geometry("360x330")
         win.resizable(True, True)
         self._eetf_window = win
@@ -972,25 +885,25 @@ class HDRCalibrationUI:
             value=("" if mon_min_default is None else f"{mon_min_default}")
         )
 
-        tk.Label(frm, text="源最大亮度 (nit)：", font=("Microsoft YaHei", 13)).grid(
+        tk.Label(frm, text=_("Source max luminance (nit):"), font=("Microsoft YaHei", 13)).grid(
             row=0, column=0, sticky="w", pady=6
         )
         e1 = ttk.Entry(frm, textvariable=v_src_max, width=18)
         e1.grid(row=0, column=1, sticky="w", pady=6)
 
-        tk.Label(frm, text="源最小亮度 (nit)：", font=("Microsoft YaHei", 13)).grid(
+        tk.Label(frm, text=_("Source min luminance (nit):"), font=("Microsoft YaHei", 13)).grid(
             row=1, column=0, sticky="w", pady=6
         )
         e2 = ttk.Entry(frm, textvariable=v_src_min, width=18)
         e2.grid(row=1, column=1, sticky="w", pady=6)
 
-        tk.Label(frm, text="显示器最大亮度 (nit)：", font=("Microsoft YaHei", 13)).grid(
+        tk.Label(frm, text=_("Display max luminance (nit):"), font=("Microsoft YaHei", 13)).grid(
             row=2, column=0, sticky="w", pady=6
         )
         e3 = ttk.Entry(frm, textvariable=v_max, width=18)
         e3.grid(row=2, column=1, sticky="w", pady=6)
 
-        tk.Label(frm, text="显示器最小亮度 (nit)：", font=("Microsoft YaHei", 13)).grid(
+        tk.Label(frm, text=_("Display min luminance (nit):"), font=("Microsoft YaHei", 13)).grid(
             row=3, column=0, sticky="w", pady=6
         )
         e4 = ttk.Entry(frm, textvariable=v_min, width=18)
@@ -998,7 +911,7 @@ class HDRCalibrationUI:
 
         tk.Label(
             frm,
-            text="提示：显示器最大/最小亮度留空时，将使用测量值。",
+            text=_("Tip: leave display max/min empty to use measured values."),
             font=("Microsoft YaHei", 13),
             fg="#333333",
             wraplength=320,
@@ -1009,31 +922,31 @@ class HDRCalibrationUI:
         btns.grid(row=5, column=0, columnspan=2, pady=(14, 0), sticky="e")
 
         def on_ok():
-            # 解析为浮点；允许空值 -> None
+            # Parse to float; allow empty values as None
             try:
                 smx = float(v_src_max.get())
                 smn = float(v_src_min.get())
             except Exception:
-                tk.messagebox.showerror("错误", "源亮度需为数字")
+                tk.messagebox.showerror(_("Error"), _("Source luminance must be numeric"))
                 return
             try:
                 mmx = float(v_max.get()) if v_max.get().strip() != "" else None
                 mmn = float(v_min.get()) if v_min.get().strip() != "" else None
             except Exception:
-                tk.messagebox.showerror("错误", "显示器亮度需为数字或留空")
+                tk.messagebox.showerror(_("Error"), _("Display luminance must be numeric or left blank"))
                 return
 
             if smx <= 0 or smn < 0 or smn > smx:
                 tk.messagebox.showerror(
-                    "错误", "源亮度需大于0, 源最小亮度需小于等于源最大亮度"
+                    _("Error"), _("Source max must be > 0 and source min must be <= source max")
                 )
                 return
 
             if mmx is not None and mmx <= 0:
-                tk.messagebox.showerror("错误", "显示器最大亮度需大于 0")
+                tk.messagebox.showerror(_("Error"), _("Display max luminance must be > 0"))
                 return
             if (mmx is not None and mmn is not None) and (mmn < 0 or mmn > mmx):
-                tk.messagebox.showerror("错误", "最小亮度需在 [0, 最大亮度] 区间内")
+                tk.messagebox.showerror(_("Error"), _("Display min luminance must be within [0, max]"))
                 return
 
             self.eetf_args = {
@@ -1042,17 +955,17 @@ class HDRCalibrationUI:
                 "monitor_max": mmx,
                 "monitor_min": mmn,
             }
-            logging.info("EETF 参数: %s", self.eetf_args)
+            logging.info(_("EETF params: %s"), self.eetf_args)
             win.destroy()
 
         def on_cancel():
             self.eetf_var.set(False)
             win.destroy()
 
-        ttk.Button(btns, text="确定", command=on_ok, width=10).pack(
+        ttk.Button(btns, text=_("OK"), command=on_ok, width=10).pack(
             side="right", padx=(8, 0)
         )
-        ttk.Button(btns, text="取消", command=on_cancel, width=10).pack(side="right")
+        ttk.Button(btns, text=_("Cancel"), command=on_cancel, width=10).pack(side="right")
 
         win.bind("<Return>", lambda e: on_ok())
         win.bind("<Escape>", lambda e: on_cancel())
@@ -1097,13 +1010,13 @@ class HDRCalibrationUI:
 
     @safe_call
     def calibrate_monitor(self):
-        logging.info("开始校准")
+        logging.info(_("Calibration started"))
         self.freeze_ui()
         hdr_status = self.human_display_config_map[self.monitor_var.get()]["color_work_status"]
-        logging.info(f"所选屏幕工作状态: {hdr_status}")
+        logging.info(_("Selected screen HDR state: {}").format(hdr_status))
         if hdr_status != "hdr":
-            msg = "选中的屏幕未开启HDR，请在系统设置中开启HDR后再执行校准。"
-            tk.messagebox.showerror("错误", msg)
+            msg = _("The selected screen HDR is off. Please enable HDR in system settings before calibration.")
+            tk.messagebox.showerror(_("Error"), msg)
             logging.error(msg)
             self.clean_color_rw_process()
             self.unfreeze_ui()
@@ -1112,12 +1025,12 @@ class HDRCalibrationUI:
         self.proc_color_write = ColorWriter()
         args = self.get_spotread_args()
         self.proc_color_reader = ColorReader(args)
-        # 向子进程写入命令
+        # Send command to the child process
         self.proc_color_write.write_rgb([800, 800, 800])
-        msg = "将白色窗口移动到需要校准的屏幕上，调整窗口大小以确保能够完全覆盖校色仪，然后将校色仪放置在窗口上并点击确定。"
-        answer = tk.messagebox.askokcancel("放置校色仪", msg)
+        msg = _("Move the white window to the target screen, resize it to fully cover the meter, place the meter on the window, then click OK.")
+        answer = tk.messagebox.askokcancel(_("Place the colorimeter"), msg)
         if not answer:
-            logging.info("用户取消校准")
+            logging.info(_("User canceled calibration"))
             self.clean_color_rw_process()
             self.unfreeze_ui()
             return
@@ -1130,21 +1043,20 @@ class HDRCalibrationUI:
         def calibrate_control():
             self.measure_gamut_before()
             self.calibrate_pq()
-            self.calibrate_chromaticity()
             # self.calibrate_white_by_lut()
+            self.calibrate_chromaticity()
             self.measure_gamut_after()
             
             return
             
-            self.calibrate_chromaticity()
 
         def measure_control_cb(result):
             if isinstance(result, Exception):
-                msg = f"matrix lut 生成失败: {result}"
+                msg = _("Matrix LUT generation failed: {}").format(result)
                 logging.error(msg)
-                tk.messagebox.showerror("错误", msg)
+                tk.messagebox.showerror(_("Error"), msg)
             else:
-                logging.info("matrix lut 已生成")
+                logging.info(_("Matrix LUT generated"))
             self.unfreeze_ui()
             self.clean_color_rw_process()
             self.icc_change_delay = 0
@@ -1162,7 +1074,7 @@ class HDRCalibrationUI:
         for color, rgb in self.gamut_test_rgb.items():
             self.proc_color_write.write_rgb(rgb, delay=0.1)
             XYZ = self.proc_color_reader.read_XYZ()
-            logging.info(f"色彩: {color} 测量值：{XYZ}")
+            logging.info(_("Color {} measured XYZ: {}").format(color, XYZ))
             eetf = self.eetf_var.get()
             # If EETF is enabled, 
             # set the luminance parameters in the ICC 
@@ -1182,19 +1094,19 @@ class HDRCalibrationUI:
             
             
         start_lumi = self.measure_gamut_xyz["black"][1]
-        delta = max(start_lumi * 0.01, 0.0005)  # 可按需要调整阈值
-        logging.info(f"开始二分查找激活黑: start_lumi={start_lumi} delta={delta}")
+        delta = max(start_lumi * 0.01, 0.0005)  # Adjust threshold as needed
+        logging.info(_("Start binary search for activated black: start_lumi={} delta={}").format(start_lumi, delta))
 
         def measure_gray(code):
             rgb = [code, code, code]
             self.proc_color_write.write_rgb(rgb, delay=0.1)
             XYZ = self.proc_color_reader.read_XYZ()
-            logging.info(f"灰阶测试 code={code} RGB={rgb} 测量值: {XYZ}")
+            logging.info(_("Gray test code={} RGB={} measured XYZ: {}").format(code, rgb, XYZ))
             return XYZ
 
         high_XYZ = measure_gray(255)
         if high_XYZ[1] <= start_lumi + delta:
-            logging.info("未在 0-255 范围内检测到亮度显著提升，跳过激活黑判定")
+            logging.info(_("No significant luminance increase found in 0-255 range; skipping activated black detection"))
             self.measure_gamut_xyz["min_activated_black"] = self.measure_gamut_xyz["black"]
         else:
             lo, hi = 1, 255
@@ -1211,9 +1123,9 @@ class HDRCalibrationUI:
                     lo = mid + 1
             if found_XYZ is not None:
                 self.measure_gamut_xyz["min_activated_black"] = found_XYZ
-                logging.info(f"测得激活黑电平: code={found_code} XYZ={found_XYZ}")
+                logging.info(_("Activated black level found: code={} XYZ={}").format(found_code, found_XYZ))
             else:
-                logging.info("未找到激活黑（可能所有灰阶差异都低于阈值）")
+                logging.info(_("Activated black not found (grayscale differences may be below threshold)"))
 
         """
         FIXME 
@@ -1221,7 +1133,7 @@ class HDRCalibrationUI:
         but currently I can't get dogegen to display in fullscreen.
         """
         peak_lumi = max_lumi
-        logging.info(f"写入最大亮度{max_lumi},全帧最大亮度{peak_lumi}, 最低亮度{min_lumi}")
+        logging.info(_("Writing max full-frame luminance {}, peak luminance {}, min luminance {}").format(max_lumi, peak_lumi, min_lumi))
         self.MHC2["min_luminance"] = min_lumi
         self.MHC2["peak_luminance"] = peak_lumi
         self.icc_handle.write_XYZType("lumi", [[max_lumi, max_lumi, max_lumi]])
@@ -1230,7 +1142,7 @@ class HDRCalibrationUI:
         g = l2_normalize_XYZ(self.measure_gamut_xyz["green"])
         b = l2_normalize_XYZ(self.measure_gamut_xyz["blue"])
         w = l2_normalize_XYZ(self.measure_gamut_xyz["white_200nit"])
-        logging.info(f"写入RGBW XYZ:\n {r}\n {g}\n {b}\n {w}")
+        logging.info(_("Writing RGBW XYZ:\n {}\n {}\n {}\n {}").format(r, g, b, w))
         self.icc_handle.write_XYZType("rXYZ", [r])
         self.icc_handle.write_XYZType("gXYZ", [g])
         self.icc_handle.write_XYZType("bXYZ", [b])
@@ -1238,7 +1150,7 @@ class HDRCalibrationUI:
         
         self.icc_handle.write_MHC2(self.MHC2)
 
-        logging.info("色域测量完成")
+        logging.info(_("Gamut measurement finished"))
     
     def measure_gamut_after(self):
         self.preview_var.set(True)
@@ -1247,7 +1159,7 @@ class HDRCalibrationUI:
         for color, rgb in self.gamut_test_rgb.items():
             self.proc_color_write.write_rgb(rgb, delay=0.1)
             XYZ = self.proc_color_reader.read_XYZ()
-            logging.info(f"色彩: {color} 测量值：{XYZ}")
+            logging.info(_("Color {} measured XYZ: {}").format(color, XYZ))
             if color == "white":
                 max_lumi = XYZ[1]
             if color == "black":
@@ -1269,12 +1181,12 @@ class HDRCalibrationUI:
             black_rgb_fix = apply_lut(XYZ_to_BT2020_PQ_rgb(self.measure_gamut_xyz["black"]/10000), bright_lut_inv)
             white_xyz_fix = BT2020_PQ_rgb_to_XYZ(white_rgb_fix)
             black_xyz_fix = BT2020_PQ_rgb_to_XYZ(black_rgb_fix)
-            logging.info(f"亮度修正后白点RGB: {white_rgb_fix} XYZ: {white_xyz_fix}")
-            logging.info(f"亮度修正后黑点RGB: {black_rgb_fix} XYZ: {black_xyz_fix}")
+            logging.info(_("Brightness-compensated white RGB: {} XYZ: {}").format(white_rgb_fix, white_xyz_fix))
+            logging.info(_("Brightness-compensated black RGB: {} XYZ: {}").format(black_rgb_fix, black_xyz_fix))
             max_lumi = white_xyz_fix[1]*10000
             min_lumi = black_xyz_fix[1]*10000
         peak_lumi = max_lumi
-        logging.info(f"写入最大亮度{max_lumi},全帧最大亮度{peak_lumi}, 最低亮度{min_lumi}")
+        logging.info(_("Writing max full-frame luminance {}, peak luminance {}, min luminance {}").format(max_lumi, peak_lumi, min_lumi))
         self.MHC2["min_luminance"] = min_lumi
         self.MHC2["peak_luminance"] = peak_lumi
         self.icc_handle.write_XYZType("lumi", [[max_lumi, max_lumi, max_lumi]])
@@ -1283,7 +1195,7 @@ class HDRCalibrationUI:
         g = l2_normalize_XYZ(self.measure_gamut_xyz["green"])
         b = l2_normalize_XYZ(self.measure_gamut_xyz["blue"])
         w = l2_normalize_XYZ(self.measure_gamut_xyz["white_200nit"])
-        logging.info(f"写入RGBW XYZ:\n {r}\n {g}\n {b}\n {w}")
+        logging.info(_("Writing RGBW XYZ:\n {r}\n {g}\n {b}\n {w}").format(r=r, g=g, b=b, w=w))
         self.icc_handle.write_XYZType("rXYZ", [r])
         self.icc_handle.write_XYZType("gXYZ", [g])
         self.icc_handle.write_XYZType("bXYZ", [b])
@@ -1291,12 +1203,12 @@ class HDRCalibrationUI:
         
         self.icc_handle.write_MHC2(self.MHC2)
 
-        logging.info("色域测量完成")
+        logging.info(_("Gamut measurement finished"))
 
     def calibrate_chromaticity(self):
         # measure and build matrix
         self.preview_var.set(True)
-        logging.info("开始测量彩色并生成矩阵")
+        logging.info(_("Start color measurement and generate matrix"))
         self.target_xyz = get_srgb_calibrate_XYZ_suit(self.measure_gamut_xyz)
         if self.color_space_var.get() == "sRGB+DisplayP3":
             self.target_xyz.extend(get_P3D65_calibrate_XYZ_suit(self.measure_gamut_xyz))
@@ -1311,7 +1223,7 @@ class HDRCalibrationUI:
             self.proc_color_write.write_rgb(rgb, delay=0.1)
             XYZ = self.proc_color_reader.read_XYZ()
             XYZ = [float(itm) / 10000 for itm in XYZ]
-            logging.info(f"({i}/{l}) 色彩: {rgb} {itm} 测量值：{XYZ}")
+            logging.info(_("({}) Color: {} Target XYZ:{} Measured: {}").format(i/l, rgb , itm, XYZ))
             self.measured_xyz.append(XYZ)
             i += 1
         matrix = fit_XYZ2XYZ_wlock_dropY(self.measured_xyz, self.target_xyz,self.measured_xyz[-1], self.target_xyz[-1])
@@ -1320,10 +1232,10 @@ class HDRCalibrationUI:
         matrix2 = ori_matrix @ matrix
         self.MHC2["matrix"] = matrix2.flatten().tolist()
         self.icc_handle.write_MHC2(self.MHC2)
-        logging.info(f"测量矩阵结束，测得矩阵: {self.MHC2['matrix']}")
+        logging.info(_("Color matrix measurement finished, matrix: {}").format(self.MHC2["matrix"]))
     
     def calibrate_white_by_lut(self):
-        logging.info("开始校准灰阶色度至D65")
+        logging.info(_("Start calibrating grayscale chromaticity to D65"))
         MEASURE_POINTS_COUNT = 32
         pq_lut_origin = {"red": copy.deepcopy(self.MHC2["red_lut"]),
                          "green": copy.deepcopy(self.MHC2["green_lut"]),
@@ -1333,24 +1245,25 @@ class HDRCalibrationUI:
         XYZ = self.proc_color_reader.read_XYZ()
         max_nit = XYZ[1]
         min_nit = 10
-        logging.info(f"测得显示器最大亮度: {max_nit} nit")
+        logging.info(_("Measured display peak luminance: {} nit").format(max_nit))
         measure_points_t = np.linspace(0, 1023, MEASURE_POINTS_COUNT, dtype=int)
         measure_points = [i for i in measure_points_t if min_nit < pq_eotf(i / 1023) < max_nit*0.8]
         
-        measure_points = [719]
+        # measure_points = [719]
         
         measure_points.insert(0, 0)
         measure_points.append(1023)
-        logging.info("本次测量灰阶点{}个: {}".format(len(measure_points), measure_points))
+        logging.info(_("Grayscale points measured this run ({}): {}".format(len(measure_points), measure_points)))
         scales = []
         for grayscale in measure_points:
             nit = pq_eotf(grayscale / 1023)
             if nit > max_nit:
-                logging.info(f"灰阶{grayscale} 目标nit{nit} 超过显示器最大亮度的90% {max_nit*0.9}, 跳过")
+                logging.info(_("Grayscale {} target {} nit exceeds 90% of display peak {}, skip").format(
+                    grayscale, nit, max_nit*0.9))
                 scales.append({"grayscale":grayscale, "red": None, "green": None, "blue": None})
                 continue
             if grayscale == 0:
-                logging.info(f"灰阶{grayscale} 目标nit{nit} 为0, 跳过")
+                logging.info(_("Grayscale {} target {} nit is 0, skip").format(grayscale, nit))
                 scales.append({"grayscale":grayscale, "red": None, "green": None, "blue": None})
                 continue
             self.MHC2["red_lut"]     = copy.deepcopy(pq_lut_origin["red"])
@@ -1363,7 +1276,7 @@ class HDRCalibrationUI:
             channel_scale = {"grayscale": grayscale, "red": 1, "green": 1, "blue": 1}
             for loop_count in range(2):
                 for idx, channel in enumerate(["red","green", "blue"]):
-                    logging.info(f"调整{channel}通道")
+                    logging.info(_("Adjust {} channel").format(channel))
                     total_scale = channel_scale[channel]
                     current_scale = 1
                     step = 0.00390625
@@ -1372,7 +1285,8 @@ class HDRCalibrationUI:
                     last_ratio = None
                     while 1:
                         self.preview_var.set(True)
-                        logging.info(f"灰阶{grayscale}循环{loop_count}通道{channel} 目标：PQ->{target_rgb_pq} {rgb_pq}")
+                        logging.info(_("Grayscale {} loop {} channel {} target: PQ->{} RGB->{}").format(
+                            grayscale, loop_count, channel, target_rgb_pq, rgb_pq))
                         self.proc_color_write.write_rgb(rgb_pq, delay=0.1)
                         measure_xyz = np.array(self.proc_color_reader.read_XYZ())
                         measure_rgb_pq = XYZ_to_BT2020_PQ_rgb(measure_xyz/10000)
@@ -1381,8 +1295,14 @@ class HDRCalibrationUI:
                         total_ratio = (measure_rgb_pq / target_rgb_pq).round(4).tolist()
                         if last_ratio is None:
                             last_ratio = ratio
-                        logging.info(f"灰阶{grayscale}循环{loop_count}通道{channel} 实测:XYZ->{measure_xyz.round(4).tolist()} PQ->{measure_rgb_pq} \n"
-                                     f"ratio->{round(ratio, 4)} total_ratio->{total_ratio} scale->{round(current_scale, 4)}")
+                        logging.info(_("Grayscale {} loop {} channel {} measured: XYZ->{} PQ->{} "
+                                       "ratio->{} total_ratio->{} scale->{}").format(
+                            grayscale, loop_count, channel,
+                            measure_xyz.round(4).tolist(),
+                            measure_rgb_pq,
+                            round(ratio, 4),
+                            total_ratio,
+                            round(current_scale, 4)))
 
                         if ratio > 1:
                             if current_scale > 1:
@@ -1414,15 +1334,19 @@ class HDRCalibrationUI:
                         last_ratio = ratio
                         if done:
                             channel_scale[channel] = scale
-                            logging.info(f"灰阶{grayscale}循环{loop_count} {channel}通道调整完成, scale {scale}")
+                            logging.info(_("Grayscale {} loop {} channel {} adjusted, scale {}").format(
+                                grayscale, loop_count, channel, scale))
                             break
-                logging.info(f"\n\n\n\n灰阶{grayscale}循环{loop_count} 校准结束, red {channel_scale['red']} green {channel_scale['green']} blue {channel_scale['blue']}")
+                logging.info(_("Grayscale {} loop {} calibration done, red {} green {} blue {}").format(
+                    grayscale, loop_count,
+                    channel_scale["red"], channel_scale["green"], channel_scale["blue"]))
             scales.append(channel_scale)
             self.proc_color_write.write_rgb(rgb_pq, delay=0.3)
             measure_xyz = np.array(self.proc_color_reader.read_XYZ())
             measure_rgb_pq = XYZ_to_bt2020_linear(measure_xyz/10000)
-            logging.info(f"灰阶{grayscale} 校准后实测: \nCIEXYZ->{measure_xyz} \n线性RGB:{target_rgb_pq}->{measure_rgb_pq}")
-        logging.info(f"所有灰阶校准完成, scales: {scales}")
+            logging.info(_("Grayscale {} post-calibration: CIEXYZ->{} Linear RGB:{}->{}").format(
+                grayscale, measure_xyz, target_rgb_pq, measure_rgb_pq))
+        logging.info(_("All grayscale calibration finished, scales: {}").format(scales))
         last_activated_scale = None
         target_pq_lut_red = copy.deepcopy(pq_lut_origin["red"])
         target_pq_lut_green = copy.deepcopy(pq_lut_origin["green"])
@@ -1450,9 +1374,12 @@ class HDRCalibrationUI:
                 lgscale = cgscale
                 lbscale = cbscale
                 lgrayscale = 0
-            logging.info(f"灰阶{cgrayscale} RED插值区间 {lgrayscale}-{cgrayscale} scale {lrscale}-{crscale}")
-            logging.info(f"灰阶{cgrayscale} GREEN插值区间 {lgrayscale}-{cgrayscale} scale {lgscale}-{cgscale}")
-            logging.info(f"灰阶{cgrayscale} BLUE插值区间 {lgrayscale}-{cgrayscale} scale {lbscale}-{cbscale}")
+            logging.info(_("Grayscale {} RED interpolation range {}-{} scale {}-{}").format(
+                cgrayscale, lgrayscale, cgrayscale, lrscale, crscale))
+            logging.info(_("Grayscale {} GREEN interpolation range {}-{} scale {}-{}").format(
+                cgrayscale, lgrayscale, cgrayscale, lgscale, cgscale))
+            logging.info(_("Grayscale {} BLUE interpolation range {}-{} scale {}-{}").format(
+                cgrayscale, lgrayscale, cgrayscale, lbscale, cbscale))
             for idx in range(lgrayscale, cgrayscale):
                 
                 num = cgrayscale - lgrayscale
@@ -1482,7 +1409,7 @@ class HDRCalibrationUI:
     
     def calibrate_pq(self, eetf=False):
         self.preview_var.set(True)
-        logging.info("开始校准PQ灰阶曲线")
+        logging.info(_("Start calibrating PQ grayscale curve"))
         self.measured_pq["red"] = []
         self.measured_pq["green"] = []
         self.measured_pq["blue"] = []
@@ -1493,7 +1420,7 @@ class HDRCalibrationUI:
             self.proc_color_write.write_rgb(rgb, delay=0.03)
             XYZ = self.proc_color_reader.read_XYZ()
             rgb_measured = XYZ_to_BT2020_PQ_rgb(XYZ/10000)
-            logging.info(f"({idx+1}/{num}) 输出RGB: {rgb} 测得XYZ: {XYZ} RGB: {rgb_measured*1023}")
+            logging.info(_("({}/{}) Output RGB: {} Measured XYZ: {} RGB: {}").format(idx+1, num, rgb, XYZ, rgb_measured*1023))
             self.measured_pq["red"].append(float(rgb_measured[0]))
             self.measured_pq["green"].append(float(rgb_measured[1]))
             self.measured_pq["blue"].append(float(rgb_measured[2]))
@@ -1532,7 +1459,7 @@ class HDRCalibrationUI:
         self.MHC2["blue_lut"] = blue_lut.tolist()
         self.MHC2["entry_count"] = len(red_lut)
         self.icc_handle.write_MHC2(self.MHC2)
-        logging.info(f"测量PQ LUT结束")
+        logging.info(_("PQ LUT measurement finished"))
 
     
     @safe_call
@@ -1542,16 +1469,18 @@ class HDRCalibrationUI:
         self.proc_color_reader = ColorReader(args)
         self.proc_color_write.write_rgb([800, 800, 800])
         answer = tk.messagebox.askokcancel(
-            "注意",
-            "如果你想测量校准后但未保存和加载的配置数据,请先打开预览开关。\n\n"
-            "调整白色窗口大小位置后将校色仪放置在窗口上，然后点击确认",
+            _("Notice"),
+            _(
+                "If you want to measure calibrated but unsaved/unloaded data, please enable Preview first.\n\n"
+                "Resize and position the white window, place the colorimeter on it, then click OK"
+            ),
         )
         if not answer:
             self.clean_color_rw_process()
-            logging.info("用户取消测量")
+            logging.info(_("User canceled measurement"))
             return
         self.freeze_ui()
-        logging.info("开始测量PQ响应")
+        logging.info(_("Start measuring PQ response"))
         def m():
             target_white_xyz = []
             target_pq = []
@@ -1567,7 +1496,7 @@ class HDRCalibrationUI:
                 rgb = [grayscale, grayscale , grayscale]
                 self.proc_color_write.write_rgb(rgb, delay=0.1)
                 XYZ = np.array(self.proc_color_reader.read_XYZ())
-                logging.info(f"({idx+1}/{num}) 测量RGB: {rgb} 测量值: {XYZ}")
+                logging.info(_("({}/{}) Measure RGB: {} Result: {}").format(idx+1, num, rgb, XYZ))
                 measured_white_xyz.append([itm/10000 for itm in XYZ])
                 nit = float(XYZ[1])
                 measured_pq.append(float(pq_oetf(nit)))
@@ -1581,15 +1510,16 @@ class HDRCalibrationUI:
             # target_colored_xyz.extend(get_P3D65_test_XYZ_suit(color_gamut))
             measured_colored_xyz = []
             num = len(target_colored_xyz)
-            logging.info("开始测量彩色点")
+            logging.info(_("Start measuring color points"))
             for idx, xyz in enumerate(target_colored_xyz):
                 rgb = (XYZ_to_BT2020_PQ_rgb(xyz) * 1023).round().astype(int).tolist()
                 self.proc_color_write.write_rgb(rgb, delay=0.1)
                 XYZ = np.array(self.proc_color_reader.read_XYZ())
-                logging.info(f"({idx+1}/{num}) 测量RGB: {rgb} 测量值: {XYZ}")
+                logging.info(_("({}/{}) Measure RGB: {} Target XYZ:{} Result: {}").format(
+                    idx+1, num, rgb, xyz, XYZ))
                 measured_colored_xyz.append([itm/10000 for itm in XYZ])
             
-            logging.info(f"测量完成: {measured_colored_xyz}")
+            logging.info(_("Measurement finished: {}").format(measured_colored_xyz))
 
             return {
                 "target_xyz": np.array(target_white_xyz),
@@ -1604,43 +1534,48 @@ class HDRCalibrationUI:
             self.unfreeze_ui()
             self.clean_color_rw_process()
             if isinstance(result, Exception):
-                msg = f"测量PQ响应失败: {result}"
+                msg = _("Measuring PQ response failed: {}").format(result)
                 logging.error(msg)
-                tk.messagebox.showerror("错误", msg)
+                tk.messagebox.showerror(_("Error"), msg)
                 raise result
             else:
-                logging.info("测量PQ响应完成")
+                logging.info(_("Measuring PQ response finished"))
                 try:
                     self._show_pq_plot(result["target_pq"], result["measured_pq"])
                 except Exception as e:
-                    logging.error(f"绘制PQ曲线失败: {e}")
+                    logging.error(_("Failed to plot PQ curve: {}").format(e))
             min_care_nit = max(1/10000, result["measured_xyz"][0][1] * 1.1)
             max_care_nit = result["measured_xyz"][-1][1] * 0.9
-            logging.info(f"测得最小亮度: {min_care_nit*10000} nit, 最大亮度: {max_care_nit*10000} nit")
+            logging.info(_("Measured min luminance: {} nit, max luminance: {} nit").format(
+                min_care_nit*10000, max_care_nit*10000))
             white_de_result = []
-            logging.info("开始计算灰阶deltaE_ITP")
+            logging.info(_("Start computing grayscale deltaE_ITP"))
             for idx in range(len(result["measured_xyz"])):
                 if min_care_nit < result["measured_xyz"][idx][1] < max_care_nit:
                     t = result["target_xyz"][idx]
                     m = result["measured_xyz"][idx]
                     de = XYZdeltaE_ITP(t, m)
                     white_de_result.append([t, m, de])
-                    logging.info(f"目标: {t} 测量: {m} dE_ITP: {de.round(2)}")
+                    logging.info(_("Target: {} Measured: {} dE_ITP: {}").format(
+                        t, m, de.round(2)))
             colored_de_result = []
-            logging.info("开始计算彩色deltaE_ITP")
+            logging.info(_("Start computing color deltaE_ITP"))
             for idx in range(len(result["measured_colored_xyz"])):
                 t = result["target_colored_xyz"][idx]
                 m = result["measured_colored_xyz"][idx]
                 de = XYZdeltaE_ITP(t, m)
                 colored_de_result.append([t, m, de])
-                logging.info(f"目标: {t} 测量: {m} dE_ITP: {de.round(2)}")
+                logging.info(_("Target: {} Measured: {} dE_ITP: {}").format(
+                    t, m, de.round(2)))
             white_de_avg = np.mean([itm[2] for itm in white_de_result]).round(2)
             white_de_max = np.max([itm[2] for itm in white_de_result]).round(2)
             colored_de_avg = np.mean([itm[2] for itm in colored_de_result]).round(2)
             colored_de_max = np.max([itm[2] for itm in colored_de_result]).round(2)
-            logging.info(f"亮度范围({round(min_care_nit*10000,2)}-{round(max_care_nit*10000, 2)}内,灰阶平均deltaE_ITP: {white_de_avg},最大deltaE_ITP: {white_de_max}")
-            logging.info(f"200nit D65白点下,彩色平均deltaE_ITP: {colored_de_avg},最大deltaE_ITP: {colored_de_max}")
-
+            logging.info(_("Within luminance range ({}-{}), grayscale average deltaE_ITP: {}, max deltaE_ITP: {}").format(
+                round(min_care_nit*10000,2), round(max_care_nit*10000,2),
+                white_de_avg, white_de_max))
+            logging.info(_("At 200 nit D65 white, color average deltaE_ITP: {}, max deltaE_ITP: {}").format(
+                colored_de_avg, colored_de_max))
         self.run_in_thread(m, cb)
     
     def _show_pq_plot(self, target_pq, measured_pq):
@@ -1653,12 +1588,12 @@ class HDRCalibrationUI:
         tp = np.asarray(target_pq, dtype=float).flatten()
         mp = np.asarray(measured_pq, dtype=float).flatten()
         if tp.size != mp.size or tp.size < 2:
-            tk.messagebox.showwarning("提示", "数据不足以绘图")
+            tk.messagebox.showwarning(_("Warning"), _("Not enough data to plot"))
             return
         n = tp.size
 
         win = tk.Toplevel(self.root)
-        win.title("PQ测量曲线")
+        win.title(_("PQ measurement curve"))
         w, h = 760, 460
         win.geometry(f"{w}x{h}")
         frm = tk.Frame(win, bg="white")
@@ -1698,7 +1633,7 @@ class HDRCalibrationUI:
 
             # 标签
             canvas.create_text((x0 + x1) // 2, y1 - 6, text="PQ (%)", fill="#333", font=("Microsoft YaHei", 11))
-            canvas.create_text((x0 + x1) // 2, y0 + 35, text="位置 (%)", fill="#333", font=("Microsoft YaHei", 11))
+            canvas.create_text((x0 + x1) // 2, y0 + 35, text=_("Position (%)"), fill="#333", font=("Microsoft YaHei", 11))
 
             def to_points(arr):
                 pts = []
@@ -1739,7 +1674,7 @@ class HDRCalibrationUI:
     
     @safe_call
     def measure_color_accuracy(self):
-        with open("verify_video_extended_smpte2084_1000_p3_2020.ti1", "r") as f:
+        with open("data\\verify_video_extended_smpte2084_1000_p3_2020.ti1", "r") as f:
             lines = f.readlines()
         data_section = False
         rgb_list = []
@@ -1769,24 +1704,27 @@ class HDRCalibrationUI:
 
         self.proc_color_write.write_rgb([800, 800, 800])
         answer = tk.messagebox.askokcancel(
-            "注意",
-            "如果你想测量校准后但未保存和加载的配置数据,请先打开预览开关。\n\n"
-            "调整白色窗口大小位置后将校色仪放置在窗口上，然后点击确认",
+            _("Notice"),
+            _(
+                "If you want to measure calibrated but unsaved/unloaded data, please enable Preview first.\n\n"
+                "Resize and position the white window, place the colorimeter on it, then click OK"
+            ),
         )
         if not answer:
             self.clean_color_rw_process()
-            logging.info("用户取消测量")
+            logging.info(_("User canceled measurement"))
             return
         def cb(result):
             pass
         def m():
             real_xyz = []
-            logging.info(f"测量的RGB列表: {rgb_list}")
+            logging.info(_("Measured RGB list: {}").format(rgb_list))
             l = len(rgb_list)
             for i, rgb in enumerate(rgb_list):
                 self.proc_color_write.write_rgb(rgb, delay=0.1)
                 XYZ = self.proc_color_reader.read_XYZ()
-                logging.info(f"({i}/{l}) 测量RGB: {rgb} {xyz_list[i]} 测量值: {XYZ}")
+                logging.info(_("({}/{}) Measure RGB: {} Target XYZ:{} Result: {}").format(
+                    i+1, l, rgb, xyz_list[i], XYZ))
                 real_xyz.append([float(itm) / 10000 for itm in XYZ])
 
             self.clean_color_rw_process()
@@ -1794,20 +1732,21 @@ class HDRCalibrationUI:
             for idx in range(len(real_xyz)):
                 de = XYZdeltaE_ITP(real_xyz[idx], xyz_list[idx])
                 de_list.append(de)
-                logging.info(f"{xyz_list[idx]}: {de}")
-            logging.info(f"测量的XYZ列表: {xyz_list}")
-            logging.info(f"测量的真实XYZ值: {real_xyz}")
-            logging.info(f"测量的色差: {de_list}")
-            logging.info(f"平均色差: {sum(de_list) / len(de_list)}，最大色差: {max(de_list)}")
-            return rgb_list, xyz_list
+                logging.info(_("Target {}: {}").format(xyz_list[idx], de))
+            logging.info(_("Measured XYZ list: {}").format(xyz_list))
+            logging.info(_("Measured actual XYZ values: {}").format(real_xyz))
+            logging.info(_("Measured color differences: {}").format(de_list))
+            logging.info(_("Average color difference: {}, maximum difference: {}").format(
+                sum(de_list) / len(de_list), max(de_list)))
+
         self.run_in_thread(m, cb)
 
     def generate_and_save_icc(self):
         path = filedialog.asksaveasfilename(
             initialdir=os.path.expanduser("~/Documents"),
-            title="保存 ICC 文件",
+            title=_("Save ICC file"),
             defaultextension=".icc",
-            filetypes=[("ICC 文件", "*.icc"), ("所有文件", "*.*")],
+            filetypes=[(_("ICC file"), "*.icc"), (_("All files"), "*.*")],
         )
         if not path:
             return

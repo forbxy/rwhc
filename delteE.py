@@ -64,10 +64,7 @@ def XYZdeltaE2000(XYZ1, XYZ2):
     return deltaE2000(lab1, lab2)
 
 def XYZdeltaE_ITP(XYZ1, XYZ2):
-    """
-    计算 ΔE_ITP（BT.2124），输入 XYZ 已按 10000 nits 归一化 (1=10000nits)。
-    返回标量或 ndarray（与输入形状广播一致）。
-    """
+
     XYZ1 = np.asarray(XYZ1, dtype=float)
     XYZ2 = np.asarray(XYZ2, dtype=float)
     ITP1 = XYZ_to_ictcp(XYZ1)
@@ -76,16 +73,14 @@ def XYZdeltaE_ITP(XYZ1, XYZ2):
     dT = ITP2[..., 1] - ITP1[..., 1]
     dP = ITP2[..., 2] - ITP1[..., 2]
     
-    # 【修正】使用 BT.2124 标准公式
-    # ΔE_ITP = 720 * sqrt(dI² + 0.25*dT² + dP²)
+
     delta_E = 720 * np.sqrt(dI**2 + 0.25 * (dT**2) + dP**2)
     return delta_E
 
 if __name__ == "__main__":
-    # 示例：计算两个 XYZ 点的 ΔE2000
     print(xyY_to_XYZ([*D65_WHITE_POINT, 10000]))
     p1 = np.array([1, 1, 1]) / 10000.0
     p2 = np.array([1.01, 1.01, 1.01]) / 10000.0
 
-    print(XYZdeltaE2000(p1, p2))  # 输出 ΔE2000 值
-    print(XYZdeltaE_ITP(p1, p2))  # 输出 ΔE_ITP 值
+    print(XYZdeltaE2000(p1, p2))  
+    print(XYZdeltaE_ITP(p1, p2))  

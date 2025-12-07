@@ -1,89 +1,116 @@
-# Windows 11 真正可用的 HDR 校准软件
-![screenshot](https://github.com/forbxy/rwhc/blob/master/app.png)
+# A Truly Usable HDR Calibration Tool for Windows 11
+[ENGLISH](https://github.com/forbxy/rwhc/blob/master/README.md) | 中文
 
-## 使用方法
+![screenshot](https://github.com/forbxy/rwhc/blob/master/resources/ui.png)
 
-1. **获取项目代码**  
-   下载或 clone 本项目，并进入项目根目录。
+## Usage
 
-2. **安装 Python**  
-   在 Windows 上安装 Python（任选其一）：
+1. **Get the Project Code**  
+   Download or clone this repository and go to the project root directory.
+
+2. **Install Python**  
+   Install Python on Windows (choose one of the following):
    - Microsoft Store
-   - 官方网站：<https://www.python.org/downloads/windows/>
+   - Official website: <https://www.python.org/downloads/windows/>
 
-3. **安装依赖**  
-   在项目根目录下执行：
+3. **Install Dependencies**  
+   In the project root directory, run:
 
    ```bash
    pip install -r requirements.txt
    ```
 
-4. **运行程序**
+4. **Run the Program**
 
    ```bash
    python app.py
    ```
+   Click the “Calibrate” button to start calibration.
 
-## 使用说明补充
+## Color Measurement Devices
 
-1. **使用爱色丽校色仪和罗技鼠标**  
-   先在设备管理器中将鼠标的驱动更换为 Windows 默认驱动，然后在“服务”中停止 `Logitech LampArray Service`。
+Currently the device driver is based on ArgyllCMS, which supports common devices such as the full X-Rite lineup and Datacolor devices.  
+For the full list, please refer to the official documentation.
 
-2. **使用 Datacolor Spyder 校色仪**  
-   先安装 Argyll 驱动程序，然后在设备管理器中找到 Spyder 设备（位于“通用串行总线控制器”下）：
-   - 右键设备选择“更新驱动”
-   - 选择“浏览我的电脑以查找驱动程序”
-   - 选择“让我从计算机的可用驱动程序列表中选取”
-   - 从列表中选择 Argyll 驱动
+## Additional Usage Notes
 
-3. **灰阶采样数**  
-   10bit HDR 有 1024 级灰阶（R=G=B，范围 0–1023）。程序会在 1024 级灰阶中等距离采集指定数量的灰阶点，并对未测量的灰阶进行插值。  
-   采集数量越多，PQ 曲线校准越精准(可能)，但耗时越长。
+1. **Using X-Rite Colorimeters with Logitech Mice**  
+   Logitech mouse drivers may aggressively scan all devices and end up occupying the X-Rite colorimeter.  
+   First, change the mouse driver in Device Manager back to the default Windows driver, then go to “Services” and stop the `Logitech LampArray Service`.
 
-4. **色彩采样集**  
-   程序会在所选色域内生成一个测试集，根据测试集预期 XYZ 与实测 XYZ 进行拟合得到矩阵。  
-   - 如果你的屏幕在打开 HDR 后桌面色彩很鲜艳，推荐选择 **sRGB**  
-   - 如果颜色偏暗淡，选择 **sRGB + DisplayP3** 通常更好
+2. **Using Datacolor Spyder Colorimeters**  
+   Click the “Install driver” button to open the Argyll website, download the driver, then run the installer in the `usb` folder.  
+   After that, in Device Manager find the Spyder device (under “Universal Serial Bus controllers”):
+   - Right-click the device and choose “Update driver”
+   - Choose “Browse my computer for drivers”
+   - Choose “Let me pick from a list of available drivers on my computer”
+   - Select the Argyll driver from the list
 
-5. **明亮模式**  
-   对生成的 LUT 进行整体提升，适合在强环境光下观看电影。
+3. **Number of Grayscale Samples**  
+   10‑bit HDR has 1024 grayscale levels (R=G=B, range 0–1023).  
+   The program will sample a specified number of grayscale points evenly from these 1024 levels and interpolate the unsampled levels.  
+   More samples generally (but not always) mean more accurate PQ curve calibration, at the cost of longer measurement time.
 
-6. **预览校准结果**  
-   当执行了校准后，矩阵和 LUT 会存储在程序中。勾选“预览校准结果”会生成临时 ICC 文件并加载到选中的屏幕，取消勾选则自动移除。  
-   未执行校准时，加载的是理想 HDR ICC（BT.2020 色域，10000 nit，无需矩阵和 LUT 校准）。
+4. **Color Sample Set**  
+   The program generates a test set within the selected gamut, and fits a matrix from the relationship between the expected XYZ values and the measured XYZ values.  
+   - If your desktop colors look very vivid when HDR is on, choose **sRGB**  
+   - If colors look relatively dull, choose **sRGB + DisplayP3**
 
-7. **校准**  
-   生成矩阵和 LUT。
+5. **Bright Mode**  
+   Applies an overall boost to the generated LUT (1D LUT * 1.1).  
+   This is only suitable for watching movies in strong ambient light.
 
-8. **测量色准**  
-   测量屏幕的色准（若选中“预览校准结果”，会将当前矩阵和 LUT 临时加载到屏幕上再测量）。  
-   没有深入验证这个功能的准确性
+6. **Preview Calibration Result**  
+   After calibration, the matrix and LUT are stored in memory.  
+   When “Preview calibration result” is checked, a temporary ICC profile will be generated and applied to the selected display.  
+   When unchecked, the temporary profile is automatically removed.  
+   
+   If calibration has not been run yet, an ideal HDR ICC profile is loaded instead  
+   (BT.2020 gamut, 10000 nits, identity matrix and unmodified LUT).
 
-9. **保存**  
-   将矩阵和 LUT 保存为 ICC 配置文件。
+7. **Calibrate**  
+   Generates the matrix and LUT.
 
-## 集成的外部工具
+8. **Measure Color Accuracy**  
+   Measures the color accuracy of the display.  
+   If “Preview calibration result” is checked, the current matrix and LUT are temporarily applied to the display before measurement.  
+   The accuracy of this feature has not been deeply validated.
 
-- **色彩生成器**  
+9. **Save**  
+   Saves the matrix and LUT as an ICC profile.
+
+## Integrated External Tools
+
+- **Pattern / Color Generator**  
   dogegen  
   <https://github.com/ledoge/dogegen>
 
-- **校色设备驱动 / 测量工具**  
+- **Colorimeter Driver / Measurement Tool**  
   ArgyllCMS `spotread`  
   <https://www.argyllcms.com/>  
-  因为displaycal也是使用同的底层，因此驱动问题也可以参考displaycal文档
+  Since DisplayCAL also uses the same driver, you can also refer to DisplayCAL’s documentation.
 
-## 色度计校准说明
+## Notes on Colorimeter Calibration
 
-色度计需要对应的校准文件，具体可参考：
+Colorimeters require display‑type‑specific spectral correction files.  
+For details, see:
 
-- ArgyllCMS 文档：<https://www.argyllcms.com/doc/oeminst.html>  
-- DisplayCAL 相关教程与文档
+- ArgyllCMS documentation: <https://www.argyllcms.com/doc/oeminst.html>  
+- DisplayCAL related tutorials and documentation
 
-## 关于本项目的代码
+## About This Project
 
-本项目中有相当一部分代码由 ChatGPT 生成和协助完善。  
-如对实现方式有不同的想法，建议先尝试与 ChatGPT 5.1 讨论、验证。
+The author does not work professionally in color science, so the calibration logic may not be optimal.  
+If you find issues or have better ideas, contributions and feedback are very welcome.
 
-目前项目代码并不完善，后续也**可能不会继续维护**。  
-如果有人能将项目中的 **MHC2 校色流程** 移植到 DisplayCAL，那将是非常理想的方案。
+## Support
+
+If you would like to support the author in getting a luminance meter:
+
+- USDT_ERC20: `0xa7475effb3f2c5fcb618e8052fc4c45ccc9d9710`  
+- BTC: `bc1qa77v8als2f7qradmtmjjy5ad057q9yws6nanx6`
+
+## License
+
+This project is licensed under the GNU Affero General Public License v3.0 (AGPL‑3.0).  
+See the `LICENSE` file in the project root for details.

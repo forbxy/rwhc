@@ -1,13 +1,22 @@
 import os
+import sys
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
-from icc_rw import ICCProfile  
+
+# --- ensure project root in sys.path ---
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(CURRENT_DIR)
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+from icc_rw import ICCProfile
 from convert_utils import l2_normalize_XYZ
+from i18n.i18n_loader import _
 
 class ICCRWApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("HDR icc编辑器 (未加载)")
+        self.root.title(_("HDR ICC Editor (Not Loaded)"))
         self.profile: ICCProfile | None = None
         self.current_path: str | None = None
         self.modified = False
@@ -27,46 +36,46 @@ class ICCRWApp:
         style.configure("TLabel", anchor="w")
     
     def _auto_fit(self):
-        # 计算所有控件所需尺寸，设置窗口与最小尺寸
+        # Calculate required sizes for all widgets and set window/minimum size
         self.root.update_idletasks()
         w = self.root.winfo_reqwidth()
         h = self.root.winfo_reqheight()
-        self.root.geometry(f"{w}x{h}")
+        self.root.geometry("{}x{}".format(w, h))
         self.root.minsize(w, h)
 
     def _build_ui(self):
         top = ttk.Frame(self.root)
         top.pack(fill="x", padx=10, pady=6)
 
-        ttk.Button(top, text="打开 ICC", command=self.open_icc).pack(side="left")
-        ttk.Button(top, text="保存", command=self.save_icc).pack(side="left", padx=6)
-        ttk.Button(top, text="另存为", command=self.save_as).pack(side="left")
-        ttk.Button(top, text="退出", command=self.root.destroy).pack(side="left")
+        ttk.Button(top, text=_("Open ICC"), command=self.open_icc).pack(side="left")
+        ttk.Button(top, text=_("Save"), command=self.save_icc).pack(side="left", padx=6)
+        ttk.Button(top, text=_("Save As"), command=self.save_as).pack(side="left")
+        ttk.Button(top, text=_("Exit"), command=self.root.destroy).pack(side="left")
 
-        # 删除原 path_frame，避免 file_info_var 被重复定义而顶部那个不更新的问题
+        # Remove original path_frame to avoid duplicate file_info_var and stale updates on the top entry
 
         self.nb = ttk.Notebook(self.root)
         self.nb.pack(fill="both", expand=True, padx=10, pady=(0, 6))
 
         base_page = ttk.Frame(self.nb, padding=10)
-        self.nb.add(base_page, text="基础标签")
+        self.nb.add(base_page, text=_("Base Tags"))
 
         for c in range(4):
             base_page.columnconfigure(c, weight=0)
 
-        # 单一 file_info_var（不要再次赋值）
-        self.file_info_var = tk.StringVar(value="(未加载)")
-        ttk.Label(base_page, text="file:").grid(row=0, column=0, sticky="w", pady=2)
+        # Single file_info_var (do not reassign)
+        self.file_info_var = tk.StringVar(value=_("(Not Loaded)"))
+        ttk.Label(base_page, text=_("file:")).grid(row=0, column=0, sticky="w", pady=2)
         self.file_info_entry = ttk.Entry(base_page, textvariable=self.file_info_var,
                                          state="readonly", width=56)
         self.file_info_entry.grid(row=0, column=1, columnspan=3, sticky="w", pady=2)
 
-        ttk.Label(base_page, text="desc:").grid(row=1, column=0, sticky="w", pady=2)
+        ttk.Label(base_page, text=_("desc:")).grid(row=1, column=0, sticky="w", pady=2)
         self.desc_var = tk.StringVar()
         self.desc_entry = ttk.Entry(base_page, textvariable=self.desc_var, width=56)
         self.desc_entry.grid(row=1, column=1, columnspan=3, sticky="w", pady=2)
 
-        ttk.Label(base_page, text="cprt:").grid(row=2, column=0, sticky="w", pady=2)
+        ttk.Label(base_page, text=_("cprt:")).grid(row=2, column=0, sticky="w", pady=2)
         self.cprt_var = tk.StringVar()
         self.cprt_entry = ttk.Entry(base_page, textvariable=self.cprt_var, width=56)
         self.cprt_entry.grid(row=2, column=1, columnspan=3, sticky="w", pady=2)
@@ -88,60 +97,61 @@ class ICCRWApp:
         xyz_row(6, "wtpt:", self.wtpt_vars)
         xyz_row(7, "lumi:", self.lumi_vars)
 
-        ttk.Label(base_page,
-                  text="(数值留空表示不修改该 XYZ)").grid(row=8, column=0, columnspan=4, sticky="w", pady=(6,0))
+        ttk.Label(base_page, text=_("(Leave value empty to keep the XYZ)")).grid(
+            row=8, column=0, columnspan=4, sticky="w", pady=(6,0)
+        )
 
-        # MHC2 页保持原样（行号不变，可继续使用）
+        # MHC2 page kept as-is (row numbers unchanged)
         mhc2_page = ttk.Frame(self.nb, padding=10)
         self.nb.add(mhc2_page, text="MHC2")
 
-        ttk.Label(mhc2_page, text="3x3 矩阵:").grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 4))
+        ttk.Label(mhc2_page, text=_("3x3 Matrix:")).grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 4))
         self.m_matrix_vars = [tk.StringVar() for _ in range(9)]
         for i in range(3):
             for j in range(3):
                 ttk.Entry(mhc2_page, width=8, textvariable=self.m_matrix_vars[i*3+j]).grid(row=i+1, column=j, padx=2, pady=2, sticky="w")
 
-        ttk.Label(mhc2_page, text="Min Luminance:").grid(row=4, column=0, sticky="e", pady=(8,2))
+        ttk.Label(mhc2_page, text=_("Min Luminance:")).grid(row=4, column=0, sticky="e", pady=(8,2))
         self.min_lum_var = tk.StringVar()
         ttk.Entry(mhc2_page, width=10, textvariable=self.min_lum_var).grid(row=4, column=1, sticky="w", padx=4, pady=(8,2))
-        ttk.Label(mhc2_page, text="Peak Luminance:").grid(row=4, column=2, sticky="e", pady=(8,2))
+        ttk.Label(mhc2_page, text=_("Peak Luminance:")).grid(row=4, column=2, sticky="e", pady=(8,2))
         self.peak_lum_var = tk.StringVar()
         ttk.Entry(mhc2_page, width=10, textvariable=self.peak_lum_var).grid(row=4, column=3, sticky="w", padx=4, pady=(8,2))
 
-        ttk.Label(mhc2_page, text="Red LUT:").grid(row=5, column=0, sticky="e", pady=4)
+        ttk.Label(mhc2_page, text=_("Red LUT:")).grid(row=5, column=0, sticky="e", pady=4)
         self.red_lut_var = tk.StringVar()
         ttk.Entry(mhc2_page, width=56, textvariable=self.red_lut_var).grid(row=5, column=1, columnspan=3, sticky="w")
 
-        ttk.Label(mhc2_page, text="Green LUT:").grid(row=6, column=0, sticky="e", pady=4)
+        ttk.Label(mhc2_page, text=_("Green LUT:")).grid(row=6, column=0, sticky="e", pady=4)
         self.green_lut_var = tk.StringVar()
         ttk.Entry(mhc2_page, width=56, textvariable=self.green_lut_var).grid(row=6, column=1, columnspan=3, sticky="w")
 
-        ttk.Label(mhc2_page, text="Blue LUT:").grid(row=7, column=0, sticky="e", pady=4)
+        ttk.Label(mhc2_page, text=_("Blue LUT:")).grid(row=7, column=0, sticky="e", pady=4)
         self.blue_lut_var = tk.StringVar()
         ttk.Entry(mhc2_page, width=56, textvariable=self.blue_lut_var).grid(row=7, column=1, columnspan=3, sticky="w")
-        # ttk.Label(mhc2_page, text="(LUT 逗号分隔或留空保留原值)").grid(row=8, column=0, columnspan=4, sticky="w", pady=(4,0))
+        # ttk.Label(mhc2_page, text="(LUT comma-separated or leave empty to keep original)").grid(row=8, column=0, columnspan=4, sticky="w", pady=(4,0))
 
-        # ttk.Button(mhc2_page, text="标记修改 (MHC2)", command=self.mark_modified).grid(row=9, column=0, columnspan=2, sticky="w", pady=(10,0))
+        # ttk.Button(mhc2_page, text="Mark Modified (MHC2)", command=self.mark_modified).grid(row=9, column=0, columnspan=2, sticky="w", pady=(10,0))
 
-        # 状态栏
-        self.status_var = tk.StringVar(value="就绪")
+        # Status bar
+        self.status_var = tk.StringVar(value=_("Ready"))
         ttk.Label(self.root, textvariable=self.status_var, anchor="w").pack(fill="x", side="bottom")
         
     def _lut_row(self, parent, name, var, r):
-        ttk.Label(parent, text=f"{name} LUT:").grid(row=r, column=0, sticky="e", padx=2, pady=2)
+        ttk.Label(parent, text=_("{} LUT:").format(name)).grid(row=r, column=0, sticky="e", padx=2, pady=2)
         ttk.Entry(parent, width=28, textvariable=var).grid(row=r, column=1, padx=2)
-        ttk.Button(parent, text="选择文件", command=lambda v=var: self.pick_lut_file(v)).grid(row=r, column=2, padx=4)
+        ttk.Button(parent, text=_("Choose File"), command=lambda v=var: self.pick_lut_file(v)).grid(row=r, column=2, padx=4)
 
-    # ---------- 事件 ----------
+    # ---------- Events ----------
     def pick_lut_file(self, var):
-        path = filedialog.askopenfilename(title="选择 LUT 文本文件")
+        path = filedialog.askopenfilename(title=_("Select LUT text file"))
         if path:
             var.set(path)
             self.mark_modified()
 
     def open_icc(self):
-        path = filedialog.askopenfilename(title="打开 ICC 文件",
-                                          filetypes=[("ICC/ICM", "*.icc *.icm"), ("All", "*.*")])
+        path = filedialog.askopenfilename(title=_("Open ICC File"),
+                                          filetypes=[(_("ICC/ICM"), "*.icc *.icm"), (_("All"), "*.*")])
         if not path:
             return
         try:
@@ -150,9 +160,9 @@ class ICCRWApp:
             self.modified = False
             self.load_profile_data()
             self._update_titles()
-            self.status(f"已加载: {os.path.basename(path)}")
+            self.status(_("Loaded: {}" ).format(os.path.basename(path)))
         except Exception as e:
-            messagebox.showerror("错误", f"无法加载: {e}")
+            messagebox.showerror(_("Error"), _("Failed to load: {}" ).format(e))
 
     def save_icc(self):
         if not self.profile:
@@ -164,9 +174,9 @@ class ICCRWApp:
             return
         try:
             self.profile.save(self.current_path)
-            self.status("已保存")
+            self.status(_("Saved"))
         except Exception as e:
-            messagebox.showerror("错误", f"保存失败: {e}")
+            messagebox.showerror(_("Error"), _("Save failed: {}" ).format(e))
 
     def save_as(self):
         if not self.profile:
@@ -174,25 +184,25 @@ class ICCRWApp:
         if not self.apply_changes():
             return
         path = filedialog.asksaveasfilename(defaultextension=".icc",
-                                            filetypes=[("ICC", "*.icc"), ("ICM", "*.icm")])
+                                            filetypes=[(_("ICC"), "*.icc"), (_("ICM"), "*.icm")])
         if not path:
             return
         try:
             self.profile.save(path)
             self.current_path = path
             self._update_titles()
-            self.status("已另存")
+            self.status(_("Saved As"))
         except Exception as e:
-            messagebox.showerror("错误", f"另存失败: {e}")
+            messagebox.showerror(_("Error"), _("Save As failed: {}" ).format(e))
     
     def _update_titles(self):
         if self.current_path:
             name = os.path.basename(self.current_path)
-            self.root.title(f"HDR icc编辑器 - {name}")
-            self.file_info_var.set(f"{self.current_path}")
+            self.root.title(_("HDR ICC Editor - {}" ).format(name))
+            self.file_info_var.set("{}".format(self.current_path))
         else:
-            self.root.title("HDR icc编辑器 (未加载)")
-            self.file_info_var.set("(未加载)")
+            self.root.title(_("HDR ICC Editor (Not Loaded)"))
+            self.file_info_var.set(_("(Not Loaded)"))
 
 
     def on_tag_open(self, _):
@@ -206,21 +216,21 @@ class ICCRWApp:
 
     def mark_modified(self):
         self.modified = True
-        self.status("已标记修改 (待应用)")
+        self.status(_("Marked modified (pending apply)"))
 
     def refresh_view(self):
         if self.profile:
             self.load_profile_data()
-            self.status("已刷新")
+            self.status(_("Refreshed"))
 
-    # ---------- 数据加载 ----------
+    # ---------- Data Loading ----------
     def load_profile_data(self):
         try:
             data = self.profile.read_all()
             # desc
             desc_text = ""
             d = data.get('desc')
-            if isinstance(d, dict):  # 可能是 {'localizations':[...]}
+            if isinstance(d, dict):  # Could be {'localizations':[...]} or entries list
                 locs = d.get('localizations') or d.get('entries')
                 if locs and isinstance(locs, list):
                     first = locs[0]
@@ -282,7 +292,7 @@ class ICCRWApp:
                     arr = mhc2.get(lut_name)
                     if arr:
                         # var.set("")
-                        # FIXME，很卡
+                        # FIXME: slow when long
                         var.set(",".join(f"{v:.6f}" for v in arr))
                     else:
                         var.set("")
@@ -294,7 +304,7 @@ class ICCRWApp:
                 self.green_lut_var.set("")
                 self.blue_lut_var.set("")
         except Exception as e:
-            self.status(f"解析失败: {e}")
+            self.status(_("Parse failed: {}" ).format(e))
 
     def show_tag(self, tag):
         display = ""
@@ -305,35 +315,35 @@ class ICCRWApp:
                     f"  {r['lang']}-{r['country']}: {r['text']}" for r in val
                 )
             else:
-                display = f"desc (ascii): {val}"
+                display = "desc (ascii): {}".format(val)
         elif tag in ('rXYZ', 'gXYZ', 'bXYZ', 'wtpt', 'lumi'):
             vals = self.profile.read_XYZType(tag)
             if vals:
-                display = f"{tag} (XYZType):"
+                display = "{} (XYZType):".format(tag)
                 for i, (x, y, z) in enumerate(vals):
-                    display += f"\n  [{i}] X={x:.6f} Y={y:.6f} Z={z:.6f}"
+                    display += "\n  [{}] X={:.6f} Y={:.6f} Z={:.6f}".format(i, x, y, z)
             else:
-                display = f"{tag}: (empty)"
+                display = "{}: (empty)".format(tag)
         elif tag == 'MHC2':
             mhc2 = self.profile.read_MHC2()
             if mhc2:
                 display = "MHC2:\n"
-                display += f"  entry_count = {mhc2.get('entry_count')}\n"
-                display += f"  min_luminance = {mhc2.get('min_luminance')}\n"
-                display += f"  peak_luminance = {mhc2.get('peak_luminance')}\n"
+                display += "  entry_count = {}\n".format(mhc2.get('entry_count'))
+                display += "  min_luminance = {}\n".format(mhc2.get('min_luminance'))
+                display += "  peak_luminance = {}\n".format(mhc2.get('peak_luminance'))
                 m = mhc2.get('matrix') or []
                 if m:
                     display += "  matrix:\n"
                     for i in range(3):
-                        display += "    " + " ".join(f"{m[i*3+j]:.6f}" for j in range(3)) + "\n"
+                        display += "    " + " ".join("{:.6f}".format(m[i*3+j]) for j in range(3)) + "\n"
                 for ch in ('red_lut', 'green_lut', 'blue_lut'):
                     lut = mhc2.get(ch)
                     if lut:
-                        display += f"  {ch} ({len(lut)}): first 16 -> " + ", ".join(
-                            f"{v:.6f}" for v in lut[:16]
+                        display += "  {} ({}): first 16 -> ".format(ch, len(lut)) + ", ".join(
+                            "{:.6f}".format(v) for v in lut[:16]
                         )
                         if len(lut) > 16:
-                            display += f" ... (total {len(lut)})"
+                            display += " ... (total {})".format(len(lut))
                         display += "\n"
             else:
                 display = "MHC2: (not present)"
@@ -341,25 +351,25 @@ class ICCRWApp:
             msca = self.profile.read_MSCA()
             if msca:
                 display = "MSCA (Microsoft private tag):\n"
-                display += f"  size = {msca['size']}\n"
-                display += f"  type_signature = {msca['type_signature'] or '(unknown / binary)'}\n"
+                display += "  size = {}\n".format(msca['size'])
+                display += "  type_signature = {}\n".format(msca['type_signature'] or '(unknown / binary)')
                 display += "  (content kept opaque; not parsed)"
             else:
                 display = "MSCA: (not present)"
         else:
-            # 其他未解析标签：只给出存在信息，不显示十六进制
+            # Other unparsed tags: show existence info only, skip hex dump
             info = self.profile.tags.get(tag)
             if info:
-                display = f"{tag}: size={info['size']} (raw / unparsed)"
+                display = "{}: size={} (raw / unparsed)".format(tag, info['size'])
             else:
-                display = f"{tag}: (not present)"
+                display = "{}: (not present)".format(tag)
 
         self.text_view.configure(state="normal")
         self.text_view.delete("1.0", "end")
-        self.text_view.insert("1.0", display if display else "(空)")
+        self.text_view.insert("1.0", display if display else _("(empty)"))
         self.text_view.configure(state="disabled")
 
-    # ---------- 应用修改 ----------
+    # ---------- Apply Changes ----------
     def apply_changes(self):
         if not self.profile:
             return False
@@ -374,7 +384,7 @@ class ICCRWApp:
             if cprt:
                 self.profile.write_cprt([{'lang': 'en', 'country': 'US', 'text': cprt}])
 
-            # XYZ 写入（非空即写）
+            # XYZ write (only if non-empty)
             def collect_xyz(vars_list):
                 if any(v.get().strip() for v in vars_list):
                     xyz = [float(vars_list[0].get()), float(vars_list[1].get()), float(vars_list[2].get())]
@@ -399,7 +409,7 @@ class ICCRWApp:
                 for v in self.m_matrix_vars:
                     matrix_vals.append(float(v.get()))
                 if len(matrix_vals) != 9:
-                    raise ValueError("MHC2 矩阵需要 9 个数字")
+                    raise ValueError(_("MHC2 matrix needs 9 numbers"))
             else:
                 matrix_vals = [1,0,0, 
                                0,1,0, 
@@ -416,9 +426,9 @@ class ICCRWApp:
             blue = parse_lut(self.blue_lut_var.get())
             entry_count = len(red)
             if entry_count != len(green) or entry_count != len(blue):
-                raise ValueError("所有 LUT 必须具有相同的条目数")
+                raise ValueError(_("All LUTs must have the same number of entries"))
             if entry_count < 2 or entry_count > 4096:
-                raise ValueError("LUT 条目数必须在 2 到 4096 之间")
+                raise ValueError(_("LUT entries must be between 2 and 4096"))
             min_lum = self._try_float(self.min_lum_var.get())
             peak_lum = self._try_float(self.peak_lum_var.get())
 
@@ -436,10 +446,10 @@ class ICCRWApp:
             self.modified = False
             return True
         except Exception as e:
-            messagebox.showerror("应用失败", str(e))
+            messagebox.showerror(_("Apply failed"), str(e))
             return False
 
-    # ---------- 辅助 ----------
+    # ---------- Helpers ----------
     def _try_float(self, s):
         s = s.strip()
         if not s:
