@@ -1,0 +1,7 @@
+CHANGES
+=======
+
+* integrate the wexpect package into the project
+* fix README URL
+* add ENGLISH support
+* rebase
