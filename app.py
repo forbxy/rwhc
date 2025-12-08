@@ -240,7 +240,8 @@ class HDRCalibrationUI:
         self.instrument_choose = [itm[0] for itm in im[0]]
         self.mode_desc = [itm[1] for itm in im[1]]
         self.mode_choose = [itm[0] for itm in im[1]]
-
+        if not self.instrument_desc:
+            self.instrument_desc = [_("No instrument found")]
         self.instrument_var = tk.StringVar(value=self.instrument_desc[0])
         tk.Label(
             button_frame, text=_("Select instrument:"), font=("Microsoft YaHei", 16), bg="#f8f8f8"
@@ -256,7 +257,8 @@ class HDRCalibrationUI:
         instrument_menu.grid(
             row=1, column=0, sticky="we", padx=(120, 0), pady=(0, 12), columnspan=3
         )
-
+        if not self.mode_desc:
+            self.mode_desc = [_("No instrument found")]
         self.mode_var = tk.StringVar(value=self.mode_desc[0])
         tk.Label(
             button_frame, text=_("Instrument mode:"), font=("Microsoft YaHei", 16), bg="#f8f8f8"
