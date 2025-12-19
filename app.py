@@ -528,6 +528,7 @@ class HDRCalibrationUI:
         instrument_idx = self.instrument_desc.index(self.instrument_var.get())
         mode_idx = self.mode_desc.index(self.mode_var.get())
         args.append("-x")
+        args.append("-e")
         print(instrument_idx, mode_idx)
         if len(self.instrument_choose) > 0:
             args.extend(["-c", self.instrument_choose[instrument_idx]])

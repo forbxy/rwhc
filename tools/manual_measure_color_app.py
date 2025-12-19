@@ -49,7 +49,7 @@ class ColorMeasureApp(tk.Tk):
         row0 = ttk.Frame(root)
         row0.pack(fill="x", pady=(0, 4))
         ttk.Label(row0, text=_("spotread arguments:"), width=12).pack(side="left")
-        self.args_var = tk.StringVar(value="-x -y e")  # Adjust to your needs
+        self.args_var = tk.StringVar(value="-x -e")  # Adjust to your needs
         ttk.Entry(row0, textvariable=self.args_var, width=42).pack(side="left", padx=(0, 0))
 
         ttk.Label(row0, text=_("Output mode:")).pack(side="left")
