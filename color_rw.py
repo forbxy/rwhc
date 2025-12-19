@@ -13,6 +13,7 @@ class ColorReader:
         execute = os.path.join(base_dir, "bin", "spotread.exe")
         self.instance = wexpect.spawn(execute, [self.args_list],
                                     env=os.environ.copy(), timeout=10)
+        self.status = "init"
         s = ""
         timeout = 15
         start = time.time()
@@ -22,11 +23,38 @@ class ColorReader:
                 if ret:
                     s += ret
             except wexpect.EOF:
-                raise RuntimeError("spotread exit unexpectedly")    
+                raise RuntimeError("spotread exit unexpectedly")
             if time.time() - start > timeout:
                 raise TimeoutError("init ColorReader time out")
             if "key to take a reading:" in s:
+                self.status = "ready"
                 break
+            if "Spot read needs a calibration before continuing" in s:
+                self.status = "need_calibration"
+                break
+    
+    def calibrate(self):
+        self.instance.send("x")
+        s = ""
+        timeout = 15
+        start = time.time()
+        while 1:
+            try:
+                ret = self.instance.read_nonblocking(size=1000)
+                if ret:
+                    s += ret
+            except wexpect.EOF:
+                raise RuntimeError("spotread exit unexpectedly during calibration")
+            if "key to take a reading:" in s:
+                self.status = "ready"
+                break
+            if "Calibration failed" in s:
+                self.status = "need_calibration"
+                break
+            time.sleep(0.0001)
+            if time.time() - start > timeout:
+                raise TimeoutError("calibrate time out")
+        return
 
     def read_XYZ(self):
         self.instance.send("x")

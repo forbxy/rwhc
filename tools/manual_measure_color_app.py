@@ -484,6 +484,14 @@ class ColorMeasureApp(tk.Tk):
             # Note: color_rw.ColorReader expects the args object as a single param
             args_str = self.args_var.get().strip()
             self.reader = ColorReader(args=args_str)
+            if self.reader.status == "need_calibration":
+                while 1:
+                    msg = _("Spot read needs a calibration before continuing \nPlace the instrument on its reflective white reference then click OK.")
+                    answer = tk.messagebox.askokcancel(_("need_calibration"), msg)
+                    if answer:
+                        self.reader.calibrate()
+                    if self.reader.status != "need_calibration":
+                        break
             time.sleep(0.05)
 
     def _terminate_writer(self):
