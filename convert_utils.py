@@ -450,4 +450,7 @@ def XYZ_to_ictcp(xyz_norm):
 
 if __name__ == "__main__":
     from meta_data import D65_WHITE_POINT
-    a = BT2020_PQ_rgb_to_XYZ([0.5, 0.5, 0.5])
+    xyz = xyY_to_XYZ([*D65_WHITE_POINT, 10000])
+    l2 = l2_normalize_XYZ(xyz)
+    print("D65 XYZ:", xyz)
+    print("D65 XYZ L2归一化:", l2)

@@ -50,12 +50,12 @@ msgstr "({}/{}) 灰阶 {}：XYZ {} xy {}"
 
 #: app.py:1509
 msgid "({}/{}) Measure RGB: {} Result: {}"
-msgstr "({}/{}) 测量 RGB：{} 结果：{}"
+msgstr "({}/{}) 测量 RGB：{} 实测：{}"
 
 #: app.py:1528
 #: app.py:1736
 msgid "({}/{}) Measure RGB: {} Target XYZ:{} Result: {}"
-msgstr "({}/{}) 测量 RGB: {} 目标 XYZ:{} Result: {}"
+msgstr "({}/{}) 测量 RGB: {} 目标 XYZ:{} 实测: {}"
 
 #: app.py:1433
 msgid "({}/{}) Output RGB: {} Measured XYZ: {} RGB: {}"
@@ -625,7 +625,7 @@ msgstr "测量 RGBW"
 
 #: app.py:368
 msgid "Measure color accuracy"
-msgstr "测量颜色精度"
+msgstr "测量色准"
 
 #: app.py:1731
 msgid "Measured RGB list: {}"

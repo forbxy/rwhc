@@ -1548,10 +1548,10 @@ class HDRCalibrationUI:
                 self.proc_color_write.write_rgb(rgb, delay=0.1)
                 XYZ = np.array(self.proc_color_reader.read_XYZ())
                 logging.info(_("({}/{}) Measure RGB: {} Target XYZ:{} Result: {}").format(
-                    idx+1, num, rgb, xyz, XYZ))
+                    idx+1, num, rgb, xyz, XYZ/10000))
                 measured_colored_xyz.append([itm/10000 for itm in XYZ])
             
-            logging.info(_("Measurement finished: {}").format(measured_colored_xyz))
+            logging.info(_("Measurement finished: {}").format(len(measured_colored_xyz)))
 
             return {
                 "target_xyz": np.array(target_white_xyz),
